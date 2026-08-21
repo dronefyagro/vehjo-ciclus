@@ -1,4 +1,16 @@
-# vinext-starter
+# VEHJO Ciclus
+
+Plataforma de gestão da Dronefy Agro integrada ao Google Sheets.
+
+## Integração com o Google Sheets
+
+O servidor lê a planilha privada por uma conta de serviço do Google Cloud. Configure na Vercel:
+
+- `GOOGLE_SHEETS_ID`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_PRIVATE_KEY`
+
+Compartilhe a planilha com o e-mail da conta de serviço como **Leitor**. A chave privada fica somente nas variáveis protegidas da Vercel e nunca é enviada ao navegador.
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
@@ -99,8 +111,3 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
 
-
-
-## Publicação
-
-Projeto conectado ao GitHub e à Vercel para implantação automática a partir da branch `main`.
