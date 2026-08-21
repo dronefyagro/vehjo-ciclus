@@ -99,3 +99,8 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
 
+
+
+## Publicação
+
+Projeto conectado ao GitHub e à Vercel para implantação automática a partir da branch `main`.
