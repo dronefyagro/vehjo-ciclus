@@ -5,6 +5,8 @@ import "./enhancements.css";
 export const metadata: Metadata = {
   title: "VEJHO Ciclus | Gestão Integrada",
   description: "Gestão integrada para operações agrícolas, contratos, finanças, pessoas e patrimônio.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "VEJHO Ciclus", statusBarStyle: "default" },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

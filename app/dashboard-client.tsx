@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { VehjoData } from "./lib/google-sheets";
 import { release } from "./version";
 
-type IconName = "overview" | "clients" | "farms" | "contracts" | "receive" | "pay" | "bank" | "billing" | "invoice" | "stock" | "people" | "assets" | "settings" | "search" | "bell" | "shield";
+type IconName = "overview" | "clients" | "farms" | "contracts" | "receive" | "pay" | "bank" | "billing" | "invoice" | "stock" | "people" | "assets" | "settings" | "search" | "bell" | "shield" | "download";
+type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 
 const nav: Array<{ label: string; icon: IconName; group?: string }> = [
   { label: "Visão geral", icon: "overview", group: "Principal" }, { label: "Clientes", icon: "clients", group: "Operações" }, { label: "Fazendas", icon: "farms" }, { label: "Contratos", icon: "contracts" },
@@ -19,8 +20,12 @@ const rows = (data: VehjoData, name: string) => (data.sheets[name] ?? []).slice(
 export default function DashboardClient({ data }: { data: VehjoData }) {
   const [active, setActive] = useState("Visão geral");
   const [menu, setMenu] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
+  const [installed, setInstalled] = useState(false);
   const [sheetData, setSheetData] = useState(data.sheets);
   const liveData = useMemo(() => ({ ...data, sheets: sheetData }), [data, sheetData]);
+  useEffect(() => { if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js"); const capture = (event: Event) => { event.preventDefault(); setInstallPrompt(event as InstallPrompt); }; const complete = () => { setInstalled(true); setInstallPrompt(null); }; window.addEventListener("beforeinstallprompt", capture); window.addEventListener("appinstalled", complete); setInstalled(window.matchMedia("(display-mode: standalone)").matches); return () => { window.removeEventListener("beforeinstallprompt", capture); window.removeEventListener("appinstalled", complete); }; }, []);
+  const install = async () => { if (installPrompt) { await installPrompt.prompt(); const choice = await installPrompt.userChoice; if (choice.outcome === "accepted") setInstallPrompt(null); } else window.alert("Para instalar, abra o menu do navegador e escolha ‘Instalar VEJHO Ciclus’ ou ‘Criar atalho’."); };
   const summary = useMemo(() => { const contracts = rows(liveData, "Contratos"); return {
     area: contracts.reduce((sum, row) => sum + numberValue(row[5]), 0), contracts: contracts.filter((row) => /ativo|a vencer/i.test(row[9] ?? "")).length,
     receive: rows(liveData, "Contas a Receber").reduce((sum, row) => sum + numberValue(row[7] || row[5]), 0), payable: rows(liveData, "Contas a Pagar").reduce((sum, row) => sum + numberValue(row[7] || row[5]), 0), balance: rows(liveData, "Contas Bancárias").reduce((sum, row) => sum + numberValue(row[8] || row[4]), 0),
@@ -36,7 +41,7 @@ export default function DashboardClient({ data }: { data: VehjoData }) {
       <div className="profile"><div className="avatar">DA</div><div><strong>Dronefy Agro</strong><span>Administrador</span></div><button aria-label="Opções do perfil">•••</button></div>
     </aside>
     {menu && <button className="backdrop" aria-label="Fechar menu" onClick={() => setMenu(false)}/>} 
-    <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions"><button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
+    <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={install}><Icon name="download"/><span>Baixar plataforma</span></button>}<button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
       {!data.connected && <div className="connection-warning"><strong>Atualização temporariamente indisponível</strong><span>{data.error}</span></div>}
       {active === "Visão geral" ? <Dashboard data={liveData} summary={summary}/> : active === "Configurações" ? <Settings data={liveData}/> : <Module title={active} data={liveData} onChange={setSheetData}/>} 
     </section>
@@ -74,9 +79,12 @@ function Module({ title, data, onChange }: { title: string; data: VehjoData; onC
 }
 
 function Settings({ data }: { data: VehjoData }) {
-  return <div className="module-page"><div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
-    <div className="settings-grid"><section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.2</strong></div></section>
-      <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section></div>
+  return <div className="module-page">
+    <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
+    <div className="settings-grid">
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.4</strong></div></section>
+      <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
+    </div>
   </div>;
 }
 
@@ -85,7 +93,7 @@ function Icon({ name }: { name: IconName }) {
     overview:<><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></>, clients:<><circle cx="9" cy="8" r="4"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 4.5a4 4 0 0 1 0 7.5M18 15a5 5 0 0 1 3 4.5V21"/></>, farms:<><path d="M3 21V10l9-6 9 6v11M3 10h18M8 21v-6h8v6M6 8V4h3"/></>, contracts:<><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/></>,
     receive:<><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M16 15h2M8 15h4m4-13 2 2-2 2"/></>, pay:<><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M16 15h2M8 15h4m4-9-2-2 2-2"/></>, bank:<><path d="m3 9 9-5 9 5M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></>, billing:<><path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM9 8h6M9 12h6M9 16h3"/></>, invoice:<><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h4"/><circle cx="9" cy="8" r="1"/></>, stock:<><path d="m4 7 8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10"/></>,
     people:<><circle cx="8" cy="8" r="4"/><path d="M2 21v-2a6 6 0 0 1 12 0v2M16 11a3 3 0 1 0 0-6M17 15a5 5 0 0 1 5 5v1"/></>, assets:<><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 15h4"/></>, settings:<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"/></>,
-    search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>, bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>, shield:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></>,
+    search:<><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>, bell:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>, shield:<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></>, download:<><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></>,
   };
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
