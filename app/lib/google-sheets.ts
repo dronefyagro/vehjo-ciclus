@@ -35,7 +35,7 @@ async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
   if (!email || !privateKey) {
-    throw new Error("Credenciais do Google Sheets ainda não configuradas na Vercel.");
+    throw new Error("A conexão de dados ainda não foi configurada.");
   }
 
   const now = Math.floor(Date.now() / 1000);
@@ -63,7 +63,7 @@ async function getAccessToken() {
     }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error("Não foi possível autenticar no Google Sheets.");
+  if (!response.ok) throw new Error("Não foi possível autenticar a conexão de dados.");
   const body = (await response.json()) as { access_token: string };
   return body.access_token;
 }
@@ -75,7 +75,7 @@ export async function getVehjoData(): Promise<VehjoData> {
       connected: false,
       sheets: {},
       updatedAt: new Date().toISOString(),
-      error: "Identificador do Google Sheets ainda não configurado na Vercel.",
+      error: "A fonte de dados ainda não foi configurada.",
     };
   }
 
@@ -107,4 +107,3 @@ export async function getVehjoData(): Promise<VehjoData> {
     };
   }
 }
-
