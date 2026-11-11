@@ -9,7 +9,7 @@ export type VehjoData = {
   sheets: Record<string, SheetRow[]>;
 };
 
-const SHEET_NAMES = [
+export const SHEET_NAMES = [
   "Clientes",
   "Fazendas",
   "Contratos",
@@ -31,7 +31,7 @@ const b64url = (value: string | Buffer) =>
     .replace(/\+/g, "-")
     .replace(/\//g, "_");
 
-async function getAccessToken() {
+export async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
   if (!email || !privateKey) {
@@ -43,7 +43,7 @@ async function getAccessToken() {
   const claim = b64url(
     JSON.stringify({
       iss: email,
-      scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
+      scope: "https://www.googleapis.com/auth/spreadsheets",
       aud: "https://oauth2.googleapis.com/token",
       iat: now,
       exp: now + 3600,

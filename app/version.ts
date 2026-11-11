@@ -1,13 +1,11 @@
 export const release = {
-  version: "VC 1.0.1",
+  version: "VC 1.0.2",
   releasedAt: "11/11/2026",
   improvements: [
-    "Nova identidade visual Ciclus aplicada em toda a plataforma",
-    "Navegação reorganizada com ícones específicos por módulo",
-    "Painel executivo e tabelas redesenhados para melhor leitura",
-    "Busca rápida adicionada aos módulos de cadastro",
-    "Novo logotipo e favicon da plataforma",
-    "Padronização do nome para VEJHO Ciclus",
-    "Remoção de referências técnicas da interface",
+    "Ações Editar e Excluir em todos os módulos de cadastro",
+    "Formulários com os controles Salvar e Cancelar",
+    "Persistência das alterações diretamente na base integrada",
+    "Novos indicadores de clientes, fazendas, contas e estoque",
+    "Gráficos financeiro e operacional na Visão Geral",
   ],
 } as const;
