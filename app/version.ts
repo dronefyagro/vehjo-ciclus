@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.12",
+  version: "VC 1.0.13",
   releasedAt: "11/11/2026",
   improvements: [
-    "Indicadores complementares restaurados na Visão Geral",
-    "Indicadores principais mantidos com base nos contratos vigentes",
-    "Painel financeiro e carteira operacional preservados",
-    "Acompanhamento de vencimentos e estoque crítico restaurado",
-    "Resumo financeiro reorganizado sem duplicar clientes e fazendas",
+    "Alertas de contas a pagar e receber na Visão Geral",
+    "Card de alerta para produtos com estoque baixo",
+    "Resumo mensal de faturamento, despesas e receita",
+    "Métricas recorrentes ARR e MRR calculadas pelos contratos vigentes",
+    "Painel de CAGR, LTV, CAC, Churn, Ticket Médio e Retention",
   ],
 } as const;
