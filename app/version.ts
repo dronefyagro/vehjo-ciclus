@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.3",
+  version: "VC 1.0.4",
   releasedAt: "11/11/2026",
   improvements: [
-    "Tabelas ajustadas ao enquadramento da tela",
-    "Colunas responsivas com melhor visualização dos dados",
-    "Botão para instalar a plataforma no computador",
-    "Modo aplicativo com acesso direto pelo sistema operacional",
-    "Suporte básico para uso com conexão instável",
+    "Cabeçalhos das tabelas ampliados para 9 px",
+    "Dados das tabelas ampliados para 10 px",
+    "Textos dos botões ampliados para 9 px",
+    "Cor preta aplicada aos textos das tabelas e ações",
+    "Legibilidade padronizada em todos os módulos",
   ],
 } as const;
