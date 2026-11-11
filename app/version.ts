@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.18",
+  version: "VC 1.0.19",
   releasedAt: "11/11/2026",
   improvements: [
-    "Contas a Receber padronizadas com o Fluxo de Caixa",
-    "693 receitas conciliadas por nome, valor e data",
-    "Informações financeiras mescladas sem alterar os totais",
+    "Contas a Pagar padronizadas com o Fluxo de Caixa",
+    "2.208 despesas conciliadas por nome, valor e data",
+    "Seis despesas novas incorporadas com rastreabilidade",
     "Estrutura simplificada com 16 colunas gerenciais",
-    "Painéis e relatórios adaptados ao novo formato",
+    "Painéis e indicadores adaptados aos valores de despesa",
   ],
 } as const;
