@@ -7,6 +7,27 @@ const column = (size: number) => {
   return result;
 };
 
+const syncCashFlow = async (spreadsheetId: string, headers: Record<string, string>) => {
+  const params = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE" });
+  params.append("ranges", "'Contas a Receber'!A1:Q10000");
+  params.append("ranges", "'Contas a Pagar'!A1:Q10000");
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${params}`, { headers });
+  if (!response.ok) throw new Error("Não foi possível atualizar o fluxo de caixa.");
+  const result = await response.json() as { valueRanges?: Array<{ values?: Array<Array<string | number>> }> };
+  const receive = result.valueRanges?.[0]?.values ?? [];
+  const payable = result.valueRanges?.[1]?.values ?? [];
+  const header = (receive[0] ?? payable[0] ?? []).map(String);
+  const records = [...receive.slice(1), ...payable.slice(1)].filter((row) => row.some((value) => value !== "" && value !== null));
+  records.sort((a, b) => { const left = typeof a[1] === "number" ? a[1] : Date.parse(String(a[1] ?? "")) || 0; const right = typeof b[1] === "number" ? b[1] : Date.parse(String(b[1] ?? "")) || 0; return left - right || String(a[2] ?? "").localeCompare(String(b[2] ?? ""), "pt-BR"); });
+  records.forEach((row, index) => { row[0] = index + 1; });
+  const cashFlow = [header, ...records];
+  const range = encodeURIComponent("'Fluxo de Caixa'!A:Q");
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:clear`, { method: "POST", headers, body: "{}" });
+  const write = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`, { method: "PUT", headers, body: JSON.stringify({ values: cashFlow }) });
+  if (!write.ok) throw new Error("Não foi possível atualizar o fluxo de caixa.");
+  return cashFlow.map((row) => row.map((value) => String(value ?? "")));
+};
+
 export async function POST(request: Request) {
   try {
     const { action, sheet, rowIndex, values } = await request.json() as { action: "create" | "update" | "delete"; sheet: string; rowIndex?: number; values?: string[] };
@@ -36,6 +57,7 @@ export async function POST(request: Request) {
         submittedValues[9] = `=IF(A${targetRow}="";"";H${targetRow}*I${targetRow})`;
         submittedValues[10] = `=IF(A${targetRow}="";"";G${targetRow}-TODAY())`;
       }
+      if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
       const range = encodeURIComponent(`'${sheet}'!A:Z`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: [submittedValues] }) });
       if (!response.ok) throw new Error("Não foi possível salvar o cadastro.");
@@ -47,6 +69,7 @@ export async function POST(request: Request) {
         submittedValues[9] = `=IF(A${rowIndex}="";"";H${rowIndex}*I${rowIndex})`;
         submittedValues[10] = `=IF(A${rowIndex}="";"";G${rowIndex}-TODAY())`;
       }
+      if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
       const range = encodeURIComponent(`'${sheet}'!A${rowIndex}:${column(submittedValues.length)}${rowIndex}`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`, { method: "PUT", headers, body: JSON.stringify({ values: [submittedValues] }) });
       if (!response.ok) throw new Error("Não foi possível atualizar o cadastro.");
@@ -58,7 +81,8 @@ export async function POST(request: Request) {
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: "POST", headers, body: JSON.stringify({ requests: [{ deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: rowIndex - 1, endIndex: rowIndex } } }] }) });
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
-    return NextResponse.json({ ok: true, code: generatedCode });
+    const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" ? await syncCashFlow(spreadsheetId, headers) : undefined;
+    return NextResponse.json({ ok: true, code: generatedCode, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
   }
