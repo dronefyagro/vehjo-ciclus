@@ -7,6 +7,17 @@ const column = (size: number) => {
   return result;
 };
 
+const completeFinancialPeriod = (sheet: string, values: string[]) => {
+  if (sheet !== "Contas a Receber" && sheet !== "Contas a Pagar") return;
+  const value = String(values[1] ?? "");
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/), br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!iso && !br) return;
+  const year = iso?.[1] ?? br?.[3] ?? "", month = Number(iso?.[2] ?? br?.[2]);
+  values[3] = year;
+  values[4] = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"][month - 1] ?? "";
+  values[16] = year;
+};
+
 const syncCashFlow = async (spreadsheetId: string, headers: Record<string, string>) => {
   const params = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE" });
   params.append("ranges", "'Contas a Receber'!A1:Q10000");
@@ -58,6 +69,7 @@ export async function POST(request: Request) {
         submittedValues[10] = `=IF(A${targetRow}="";"";G${targetRow}-TODAY())`;
       }
       if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+      completeFinancialPeriod(sheet, submittedValues);
       const range = encodeURIComponent(`'${sheet}'!A:Z`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: [submittedValues] }) });
       if (!response.ok) throw new Error("Não foi possível salvar o cadastro.");
@@ -70,6 +82,7 @@ export async function POST(request: Request) {
         submittedValues[10] = `=IF(A${rowIndex}="";"";G${rowIndex}-TODAY())`;
       }
       if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+      completeFinancialPeriod(sheet, submittedValues);
       const range = encodeURIComponent(`'${sheet}'!A${rowIndex}:${column(submittedValues.length)}${rowIndex}`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`, { method: "PUT", headers, body: JSON.stringify({ values: [submittedValues] }) });
       if (!response.ok) throw new Error("Não foi possível atualizar o cadastro.");
