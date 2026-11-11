@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.7",
+  version: "VC 1.0.8",
   releasedAt: "11/11/2026",
   improvements: [
-    "Relatórios incorporados dentro de cada módulo",
-    "Filtro geral por código, nome ou informação",
-    "Filtro específico por status",
-    "Seleção de data inicial e data final",
-    "Relatório removido da Visão Geral",
+    "Códigos automáticos em todos os módulos de cadastro",
+    "Numeração exclusivamente sequencial e numérica",
+    "Próximo código calculado a partir dos registros existentes",
+    "Código confirmado novamente no momento de salvar",
+    "Campo de código protegido contra alteração manual",
   ],
 } as const;
