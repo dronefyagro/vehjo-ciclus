@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.6",
+  version: "VC 1.0.7",
   releasedAt: "11/11/2026",
   improvements: [
-    "Emissão de relatório em PDF disponível em todos os módulos",
-    "Layout profissional com identidade visual Dronefy",
-    "Cabeçalho, data de emissão e total de registros",
-    "Tabelas completas preparadas para impressão em A4",
-    "Relatório executivo específico para a Visão Geral",
+    "Relatórios incorporados dentro de cada módulo",
+    "Filtro geral por código, nome ou informação",
+    "Filtro específico por status",
+    "Seleção de data inicial e data final",
+    "Relatório removido da Visão Geral",
   ],
 } as const;
