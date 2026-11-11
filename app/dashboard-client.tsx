@@ -82,7 +82,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.5</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.6</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;
