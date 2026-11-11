@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.22",
+  version: "VC 1.0.23",
   releasedAt: "11/11/2026",
   improvements: [
-    "Faturamento real calculado a partir das Notas Fiscais",
-    "Gráfico histórico de faturamento ano a ano",
-    "Composição do faturamento por tipo de nota e operação",
-    "Ticket médio, recorrência e ranking de clientes faturados",
-    "Cruzamentos com contratos, hectares e contas a receber",
+    "Nova aba Inteligência de Negócios",
+    "Índice automatizado de saúde financeira",
+    "Receita bruta, líquida, despesas, resultado e margem",
+    "Despesas que mais corroem a margem e impostos por ano",
+    "Recomendações gerenciais automáticas e priorizadas",
   ],
 } as const;
