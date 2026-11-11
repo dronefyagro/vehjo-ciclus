@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.10",
+  version: "VC 1.0.11",
   releasedAt: "11/11/2026",
   improvements: [
-    "Correção de valores monetários armazenados como texto",
-    "Eliminação do erro #VALUE! no total dos contratos",
-    "Valor Total recalculado ao abrir e editar o formulário",
-    "Valores por hectare gravados como números reais",
-    "Verificação dos resultados efetivos das fórmulas",
+    "Indicadores da Visão Geral limitados aos contratos vigentes",
+    "Área sob gestão recalculada somente com contratos vigentes",
+    "Clientes únicos vinculados aos contratos vigentes",
+    "Fazendas únicas vinculadas aos contratos vigentes",
+    "Correção das referências de vencimento dos contratos",
   ],
 } as const;
