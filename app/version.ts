@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.17",
+  version: "VC 1.0.18",
   releasedAt: "11/11/2026",
   improvements: [
-    "Nova base de fluxo de caixa com 2.946 lançamentos ordenados",
-    "Conciliação automática por contraparte, valor e data",
-    "Contas a receber e a pagar reconstruídas sem duplicidades",
-    "Rastreabilidade da origem e da linha de cada lançamento",
-    "Filtros e edição disponíveis na nova aba Fluxo de Caixa",
+    "Contas a Receber padronizadas com o Fluxo de Caixa",
+    "693 receitas conciliadas por nome, valor e data",
+    "Informações financeiras mescladas sem alterar os totais",
+    "Estrutura simplificada com 16 colunas gerenciais",
+    "Painéis e relatórios adaptados ao novo formato",
   ],
 } as const;
