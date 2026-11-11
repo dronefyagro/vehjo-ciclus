@@ -9,7 +9,7 @@ type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<
 
 const nav: Array<{ label: string; icon: IconName; group?: string }> = [
   { label: "Visão geral", icon: "overview", group: "Principal" }, { label: "Clientes", icon: "clients", group: "Operações" }, { label: "Fazendas", icon: "farms" }, { label: "Contratos", icon: "contracts" },
-  { label: "Contas a Receber", icon: "receive", group: "Financeiro" }, { label: "Contas a Pagar", icon: "pay" }, { label: "Contas Bancárias", icon: "bank" }, { label: "Faturamento e DER", icon: "billing" }, { label: "Notas Fiscais", icon: "invoice" },
+  { label: "Contas a Receber", icon: "receive", group: "Financeiro" }, { label: "Contas a Pagar", icon: "pay" }, { label: "Contas Bancárias", icon: "bank" }, { label: "Fornecedores", icon: "clients" }, { label: "Plano de Contas", icon: "billing" }, { label: "Orçamento", icon: "billing" }, { label: "Transferências", icon: "bank" }, { label: "DRE Gerencial", icon: "billing" }, { label: "Fluxo de Caixa", icon: "bank" }, { label: "Faturamento e DER", icon: "billing" }, { label: "Notas Fiscais", icon: "invoice" },
   { label: "Estoque", icon: "stock", group: "Gestão" }, { label: "Recursos Humanos", icon: "people" }, { label: "Patrimônio", icon: "assets" }, { label: "Configurações", icon: "settings" },
 ];
 
@@ -62,7 +62,7 @@ export default function DashboardClient({ data }: { data: VehjoData }) {
     {menu && <button className="backdrop" aria-label="Fechar menu" onClick={() => setMenu(false)}/>} 
     <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={install}><Icon name="download"/><span>Baixar plataforma</span></button>}<button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
       {!data.connected && <div className="connection-warning"><strong>Atualização temporariamente indisponível</strong><span>{data.error}</span></div>}
-      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData}/>} 
+      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary}/> : active === "DRE Gerencial" || active === "Fluxo de Caixa" ? <FinancialReport type={active} data={liveData}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData}/>} 
     </section>
   </main>;
 }
@@ -101,6 +101,21 @@ function Dashboard({ data, summary }: { data: VehjoData; summary: { area: number
   </div>;
 }
 
+function FinancialReport({ type, data }: { type: "DRE Gerencial" | "Fluxo de Caixa"; data: VehjoData }) {
+  const ledger = (name: string) => { const source = data.sheets[name] ?? []; const headers = source[0] ?? []; const records = source.slice(1).filter((row) => row.some(Boolean)); const index = (label: string) => headers.findIndex((header) => header.toLocaleLowerCase("pt-BR") === label.toLocaleLowerCase("pt-BR")); return { records, index }; };
+  const receive = ledger("Contas a Receber"), pay = ledger("Contas a Pagar"); const monthly = new Map<string, { revenue: number; expense: number }>();
+  const add = (key: string, field: "revenue" | "expense", value: number) => { if (!key) return; const current = monthly.get(key) ?? { revenue: 0, expense: 0 }; current[field] += value; monthly.set(key, current); };
+  if (type === "DRE Gerencial") {
+    receive.records.forEach((row) => add(isoDate(row[receive.index("Emissão")]).slice(0, 7), "revenue", numberValue(row[receive.index("Valor")] ?? "")));
+    pay.records.forEach((row) => add(isoDate(row[pay.index("Emissão")]).slice(0, 7), "expense", numberValue(row[pay.index("Valor")] ?? "")));
+  } else {
+    receive.records.forEach((row) => add(isoDate(row[receive.index("Data Recebimento")]).slice(0, 7), "revenue", numberValue(row[receive.index("Recebido")] ?? "")));
+    pay.records.forEach((row) => add(isoDate(row[pay.index("Data Pagamento")]).slice(0, 7), "expense", numberValue(row[pay.index("Pago")] ?? "")));
+  }
+  let accumulated = 0; const reportRows = [...monthly.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, values]) => { const result = values.revenue - values.expense; accumulated += result; return { month, ...values, result, accumulated }; }); const totalRevenue = reportRows.reduce((sum, row) => sum + row.revenue, 0), totalExpense = reportRows.reduce((sum, row) => sum + row.expense, 0), totalResult = totalRevenue - totalExpense;
+  return <div className="module-page"><div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name={type === "DRE Gerencial" ? "billing" : "bank"}/></span><div><span>GESTÃO FINANCEIRA</span><h2>{type}</h2><p>{type === "DRE Gerencial" ? "Regime de competência: receitas menos despesas por mês" : "Regime de caixa: recebimentos menos pagamentos efetivos"}</p></div></div></div><div className="module-summary"><div><strong>{brl(totalRevenue)}</strong><span>{type === "DRE Gerencial" ? "Receita total" : "Entradas"}</span></div><div><strong>{brl(totalExpense)}</strong><span>{type === "DRE Gerencial" ? "Despesas totais" : "Saídas"}</span></div><div><strong>{brl(totalResult)}</strong><span>{type === "DRE Gerencial" ? "Resultado" : "Saldo do período"}</span></div></div><section className="card table-card"><div className="table-toolbar"><strong>Apuração mensal</strong><span>{reportRows.length} competência(s)</span></div><div className="table-scroll"><table><thead><tr><th>Competência</th><th>{type === "DRE Gerencial" ? "Receita" : "Entradas"}</th><th>{type === "DRE Gerencial" ? "Despesas" : "Saídas"}</th><th>Resultado</th><th>{type === "DRE Gerencial" ? "Margem" : "Saldo acumulado"}</th></tr></thead><tbody>{reportRows.map((row) => <tr key={row.month}><td>{row.month.split("-").reverse().join("/")}</td><td>{brl(row.revenue)}</td><td>{brl(row.expense)}</td><td>{brl(row.result)}</td><td>{type === "DRE Gerencial" ? `${(row.revenue ? row.result / row.revenue * 100 : 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : brl(row.accumulated)}</td></tr>)}</tbody></table></div></section></div>;
+}
+
 function CardHead({ icon, over, title, action }: { icon: IconName; over: string; title: string; action: string }) { return <div className="card-head"><div className="card-title"><span className="card-icon"><Icon name={icon}/></span><div><span>{over}</span><h3>{title}</h3></div></div><button>{action}</button></div>; }
 function Stock({ name, sku, qty }: { name: string; sku: string; qty: string }) { return <div className="stock-item"><div><Icon name="stock"/></div><p><strong>{name}</strong><span>{sku}</span></p><em>{qty}</em></div>; }
 function Empty() { return <div className="empty-state"><span>✓</span><strong>Tudo em ordem</strong><p>Nenhum registro requer atenção neste momento.</p></div>; }
@@ -132,7 +147,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.15</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.16</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;

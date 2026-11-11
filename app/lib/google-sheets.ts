@@ -16,6 +16,10 @@ export const SHEET_NAMES = [
   "Contas a Receber",
   "Contas a Pagar",
   "Contas Bancárias",
+  "Fornecedores",
+  "Plano de Contas",
+  "Orçamento",
+  "Transferências",
   "Faturamento e DER",
   "Notas Fiscais",
   "Estoque",
@@ -82,7 +86,7 @@ export async function getVehjoData(): Promise<VehjoData> {
   try {
     const token = await getAccessToken();
     const params = new URLSearchParams();
-    for (const name of SHEET_NAMES) params.append("ranges", `'${name}'!A1:Z500`);
+    for (const name of SHEET_NAMES) params.append("ranges", `'${name}'!A1:Z5000`);
     params.set("majorDimension", "ROWS");
     params.set("valueRenderOption", "FORMATTED_VALUE");
     const response = await fetch(
