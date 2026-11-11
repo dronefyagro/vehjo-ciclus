@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.15",
+  version: "VC 1.0.16",
   releasedAt: "11/11/2026",
   improvements: [
-    "Importação do histórico financeiro do Controle Gerencial",
-    "Novos cadastros de fornecedores e plano de contas",
-    "Orçamento e transferências incorporados à plataforma",
-    "DRE Gerencial calculada pelo regime de competência",
-    "Fluxo de Caixa calculado por recebimentos e pagamentos",
+    "Relatórios centralizados por Operações, Financeiro e Gestão",
+    "Gráficos mensais e anuais de receitas e despesas",
+    "Rankings das maiores receitas e despesas",
+    "Alertas financeiros configurados para cinco dias",
+    "Novos indicadores executivos de eficiência e liquidez",
   ],
 } as const;
