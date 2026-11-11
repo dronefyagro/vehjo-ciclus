@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.16",
+  version: "VC 1.0.17",
   releasedAt: "11/11/2026",
   improvements: [
-    "Relatórios centralizados por Operações, Financeiro e Gestão",
-    "Gráficos mensais e anuais de receitas e despesas",
-    "Rankings das maiores receitas e despesas",
-    "Alertas financeiros configurados para cinco dias",
-    "Novos indicadores executivos de eficiência e liquidez",
+    "Nova base de fluxo de caixa com 2.946 lançamentos ordenados",
+    "Conciliação automática por contraparte, valor e data",
+    "Contas a receber e a pagar reconstruídas sem duplicidades",
+    "Rastreabilidade da origem e da linha de cada lançamento",
+    "Filtros e edição disponíveis na nova aba Fluxo de Caixa",
   ],
 } as const;

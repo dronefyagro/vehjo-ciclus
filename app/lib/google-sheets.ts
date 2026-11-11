@@ -20,6 +20,7 @@ export const SHEET_NAMES = [
   "Plano de Contas",
   "Orçamento",
   "Transferências",
+  "Fluxo de Caixa",
   "Faturamento e DER",
   "Notas Fiscais",
   "Estoque",
