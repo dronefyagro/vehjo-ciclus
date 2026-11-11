@@ -1,11 +1,11 @@
 export const release = {
-  version: "VC 1.0.11",
+  version: "VC 1.0.12",
   releasedAt: "11/11/2026",
   improvements: [
-    "Indicadores da Visão Geral limitados aos contratos vigentes",
-    "Área sob gestão recalculada somente com contratos vigentes",
-    "Clientes únicos vinculados aos contratos vigentes",
-    "Fazendas únicas vinculadas aos contratos vigentes",
-    "Correção das referências de vencimento dos contratos",
+    "Indicadores complementares restaurados na Visão Geral",
+    "Indicadores principais mantidos com base nos contratos vigentes",
+    "Painel financeiro e carteira operacional preservados",
+    "Acompanhamento de vencimentos e estoque crítico restaurado",
+    "Resumo financeiro reorganizado sem duplicar clientes e fazendas",
   ],
 } as const;
