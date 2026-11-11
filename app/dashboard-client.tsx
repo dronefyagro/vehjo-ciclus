@@ -18,7 +18,7 @@ const nav: Array<{ label: string; icon: IconName; group?: string }> = [
 const numberValue = (value = "") => Number(value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0;
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const rows = (data: VehjoData, name: string) => (data.sheets[name] ?? []).slice(1).filter((row) => row.some(Boolean));
-const isoDate = (value = "") => { const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return br ? `${br[3]}-${br[2]}-${br[1]}` : value.slice(0, 10); };
+const isoDate = (value = "") => { const raw = String(value).trim(); if (/^\d{5}$/.test(raw)) return new Date(Date.UTC(1899, 11, 30) + Number(raw) * 86400000).toISOString().slice(0, 10); const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return br ? `${br[3]}-${br[2]}-${br[1]}` : raw.slice(0, 10); };
 const brazilianDate = (value = "") => { const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/); return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : value; };
 const fixEncoding = (value = "") => { let decoded = value; if (/[ÃÂ]/.test(value)) { try { const bytes = Uint8Array.from([...value].map((char) => { const code = char.charCodeAt(0); if (code > 255) throw new Error(); return code; })); decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { decoded = value; } } return decoded.replace(/Or\?amento/gi, "Orçamento").replace(/Situa\?\?o/gi, "Situação").replace(/Descri\?\?o/gi, "Descrição").replace(/Emiss\?o/gi, "Emissão").replace(/C\?digo/gi, "Código").replace(/Compet\?ncia/gi, "Competência").replace(/Gest\?o/gi, "Gestão").replace(/Relat\?rio/gi, "Relatório").replace(/Transfer\?ncias/gi, "Transferências"); };
 const displayValue = (header: string, value = "") => fixEncoding(/data|vencimento|emissão/i.test(header) ? brazilianDate(value) : value);
@@ -195,7 +195,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.24</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.25</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;
