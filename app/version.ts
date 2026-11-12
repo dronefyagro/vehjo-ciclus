@@ -1,11 +1,12 @@
 export const release = {
-  version: "VC 1.0.25",
-  releasedAt: "11/11/2026",
+  version: "VC 1.0.26",
+  releasedAt: "12/11/2026",
   improvements: [
-    "Filtro de exercício na Inteligência de Negócios",
-    "Diagnóstico financeiro recalculado por ano selecionado",
-    "Margens, impostos e despesas analisados por exercício",
-    "Recomendações adaptadas ao desempenho anual",
-    "Opção automática para o exercício mais recente",
+    "Totalizador financeiro na aba Patrimônio",
+    "Valor total de aquisição dos bens",
+    "Valor contábil atual calculado automaticamente",
+    "Indicadores patrimoniais adicionados à Visão Geral",
+    "Painéis responsivos para os novos totalizadores",
   ],
 } as const;
+
