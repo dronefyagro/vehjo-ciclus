@@ -66,14 +66,25 @@ const syncCashFlow = async (spreadsheetId: string, headers: Record<string, strin
 
 export async function POST(request: Request) {
   try {
-    const { action, sheet, rowIndex, values, rows } = await request.json() as { action: "create" | "update" | "delete" | "bulk-create"; sheet: string; rowIndex?: number; values?: string[]; rows?: string[][] };
+    const { action, sheet, rowIndex, values, rows, rules } = await request.json() as { action: "create" | "update" | "delete" | "bulk-create" | "learn-bank-rules"; sheet: string; rowIndex?: number; values?: string[]; rows?: string[][]; rules?: Array<{ key: string; target: string; category: string; costRelation?: string; costBehavior?: string; origin?: string; destination?: string; bank?: string }> };
     if (!SHEET_NAMES.includes(sheet as typeof SHEET_NAMES[number])) return NextResponse.json({ error: "Módulo inválido." }, { status: 400 });
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
     const token = await getAccessToken();
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 
-    let generatedCode: string | undefined, imported: number | undefined, skipped = 0;
+    if (action === "learn-bank-rules") {
+      const validRules = (rules ?? []).filter((rule) => rule.key && rule.target && rule.category).slice(0, 500);
+      if (!validRules.length) return NextResponse.json({ ok: true, learned: 0 });
+      const learnedAt = new Date().toISOString();
+      const learnedRows = validRules.map((rule) => ["Regra Bancária", rule.key, rule.target, rule.category, rule.costRelation ?? "", rule.costBehavior ?? "", rule.origin ?? "", rule.destination ?? "", rule.bank ?? "", learnedAt]);
+      const range = encodeURIComponent("'Configurações'!A:J");
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: learnedRows }) });
+      if (!response.ok) throw new Error("Os lançamentos foram conferidos, mas não foi possível salvar as novas regras de classificação.");
+      return NextResponse.json({ ok: true, learned: learnedRows.length });
+    }
+
+    let generatedCode: string | undefined, imported: number | undefined, skipped = 0, importedRows: string[][] | undefined;
     if (action === "bulk-create") {
       if (!rows?.length || rows.length > 500) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos." }, { status: 400 });
       const financialSheet = sheet === "Contas a Receber" || sheet === "Contas a Pagar";
@@ -96,6 +107,7 @@ export async function POST(request: Request) {
         return true;
       });
       imported = submittedRows.length;
+      importedRows = submittedRows;
       if (submittedRows.length) {
         const range = encodeURIComponent(`'${sheet}'!A:Z`);
         const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: submittedRows }) });
@@ -147,7 +159,7 @@ export async function POST(request: Request) {
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" ? await syncCashFlow(spreadsheetId, headers) : undefined;
-    return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, cashFlow });
+    return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, duplicates: skipped, rows: importedRows, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
   }

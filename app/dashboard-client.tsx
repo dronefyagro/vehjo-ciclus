@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { VehjoData } from "./lib/google-sheets";
 import { release } from "./version";
+import AdaptiveBankStatementImporter from "./bank-statement-importer";
 
 type IconName = "overview" | "clients" | "farms" | "contracts" | "receive" | "pay" | "bank" | "billing" | "invoice" | "stock" | "people" | "assets" | "settings" | "search" | "bell" | "shield" | "download" | "report";
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -115,7 +116,7 @@ export default function DashboardClient({ data }: { data: VehjoData }) {
     {menu && <button className="backdrop" aria-label="Fechar menu" onClick={() => setMenu(false)}/>} 
     <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={install}><Icon name="download"/><span>Baixar plataforma</span></button>}<button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
       {!data.connected && <div className="connection-warning"><strong>Atualização temporariamente indisponível</strong><span>{data.error}</span></div>}
-      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <BankStatementImporter data={liveData} onChange={setSheetData} onNavigate={navigateTo}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData} initialQuery={moduleQuery}/>}
+      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <AdaptiveBankStatementImporter sheets={liveData.sheets} configRows={rows(liveData, "Configurações")} onClose={() => navigateTo("Visão geral")} onImported={(updates, cashFlow) => { setSheetData((current) => { const next = { ...current }; for (const [target, importedRows] of Object.entries(updates)) next[target] = [...(current[target] ?? []), ...importedRows]; if (cashFlow) next["Fluxo de Caixa"] = cashFlow; return next; }); navigateTo("Fluxo de Caixa"); }}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData} initialQuery={moduleQuery}/>}
     </section>
   </main>;
 }
@@ -324,7 +325,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.38</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.40</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;

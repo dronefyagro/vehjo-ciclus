@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.38",
+  version: "VC 1.0.39",
   releasedAt: "18/11/2026",
   improvements: [
+    "Importação adaptativa de extratos em PDF, OFX, QFX, CSV e TXT",
+    "Identificação automática do banco, entradas, saídas, origem e destino",
+    "Conferência por nível de confiança antes de salvar",
+    "Separação de transferências internas e pagamentos de fatura",
+    "Aprendizado das classificações confirmadas por CPF/CNPJ ou favorecido",
     "Total geral de clientes calculado automaticamente pela aba Clientes",
     "Total de fazendas calculado automaticamente pela aba Fazendas",
     "Hectares na base apurados pela soma da Área Total das fazendas",
