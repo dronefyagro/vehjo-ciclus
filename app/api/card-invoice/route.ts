@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type PdfTextItem = { str?: string; hasEOL?: boolean };
 
@@ -29,9 +28,10 @@ export async function POST(request: Request) {
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Selecione uma fatura em PDF." }, { status: 400 });
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) return NextResponse.json({ error: "O arquivo deve estar no formato PDF." }, { status: 400 });
-    if (file.size > 12 * 1024 * 1024) return NextResponse.json({ error: "O PDF deve ter no máximo 12 MB." }, { status: 400 });
+    if (file.size > 4 * 1024 * 1024) return NextResponse.json({ error: "O PDF deve ter no máximo 4 MB." }, { status: 413 });
 
     const data = new Uint8Array(await file.arrayBuffer());
+    const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
     const document = await getDocument({ data, useSystemFonts: true }).promise;
     const pageTexts: string[] = [];
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
