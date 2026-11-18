@@ -1,6 +1,6 @@
 {
   "name": "vehjo-ciclus",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -16,6 +16,7 @@
   "dependencies": {
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
+    "pdfjs-dist": "^5.4.394",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -46,4 +47,3 @@
   },
   "type": "module"
 }
-

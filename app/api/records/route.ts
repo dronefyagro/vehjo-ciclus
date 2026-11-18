@@ -41,7 +41,7 @@ const syncCashFlow = async (spreadsheetId: string, headers: Record<string, strin
 
 export async function POST(request: Request) {
   try {
-    const { action, sheet, rowIndex, values } = await request.json() as { action: "create" | "update" | "delete"; sheet: string; rowIndex?: number; values?: string[] };
+    const { action, sheet, rowIndex, values, rows } = await request.json() as { action: "create" | "update" | "delete" | "bulk-create"; sheet: string; rowIndex?: number; values?: string[]; rows?: string[][] };
     if (!SHEET_NAMES.includes(sheet as typeof SHEET_NAMES[number])) return NextResponse.json({ error: "Módulo inválido." }, { status: 400 });
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
@@ -49,7 +49,23 @@ export async function POST(request: Request) {
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 
     let generatedCode: string | undefined;
-    if (action === "create") {
+    if (action === "bulk-create") {
+      if (!rows?.length || rows.length > 500) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos." }, { status: 400 });
+      const codeRange = encodeURIComponent(`'${sheet}'!A2:A10000`);
+      const codeResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${codeRange}`, { headers });
+      const codeData = await codeResponse.json() as { values?: string[][] };
+      const highestCode = (codeData.values ?? []).reduce((highest, row) => { const digits = String(row[0] ?? "").match(/\d+/g)?.join(""); return Math.max(highest, digits ? Number(digits) : 0); }, 0);
+      const submittedRows = rows.map((source, index) => {
+        const submitted = [...source];
+        submitted[0] = String(highestCode + index + 1);
+        if (sheet === "Contas a Pagar") submitted[14] = String(Math.abs(Number(String(submitted[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+        completeFinancialPeriod(sheet, submitted);
+        return submitted;
+      });
+      const range = encodeURIComponent(`'${sheet}'!A:Z`);
+      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: submittedRows }) });
+      if (!response.ok) throw new Error("Não foi possível importar os lançamentos.");
+    } else if (action === "create") {
       const submittedValues = [...(values ?? [])];
       let existingCodeCount = 0;
       if (sheet !== "Configurações") {
@@ -95,7 +111,7 @@ export async function POST(request: Request) {
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" ? await syncCashFlow(spreadsheetId, headers) : undefined;
-    return NextResponse.json({ ok: true, code: generatedCode, cashFlow });
+    return NextResponse.json({ ok: true, code: generatedCode, imported: action === "bulk-create" ? rows?.length : undefined, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
   }

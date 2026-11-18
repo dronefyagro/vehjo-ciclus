@@ -1,12 +1,11 @@
 export const release = {
-  version: "VC 1.0.30",
+  version: "VC 1.0.31",
   releasedAt: "18/11/2026",
   improvements: [
-    "Classificação de custos diretos e indiretos",
-    "Classificação de custos fixos e variáveis",
-    "Filtros gerenciais por tipo de custo",
-    "Totalizadores financeiros por classificação",
-    "Novos lançamentos com campos de custo padronizados",
+    "Importação assistida de faturas de cartão em PDF",
+    "Conferência dos lançamentos antes da inclusão",
+    "Detecção e bloqueio de despesas duplicadas",
+    "Classificação contábil e de custos durante a importação",
+    "Atualização automática de Contas a Pagar e Fluxo de Caixa",
   ],
 } as const;
-
