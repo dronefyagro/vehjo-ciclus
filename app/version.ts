@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.34",
+  version: "VC 1.0.35",
   releasedAt: "18/11/2026",
   improvements: [
+    "Compatibilidade validada com faturas empresariais do Sicredi",
+    "Leitura de datas com meses abreviados, como out e nov",
+    "Reconhecimento de compras descritas em mais de uma linha",
+    "Conferência do total extraído com precisão monetária",
     "Inclusão do processador auxiliar de PDF no pacote publicado",
     "Correção do erro de fake worker na importação de faturas",
     "Compatibilidade do leitor de PDF com o servidor da plataforma",
