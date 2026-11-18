@@ -126,14 +126,20 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
       for (const target of ["Contas a Receber", "Contas a Pagar", "Transferências"] as const) {
         const group = selected.filter((item) => item.target === target); if (!group.length) continue;
         const rows = group.map((item) => buildRow(target, item));
-        const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "bulk-create", sheet: target, rows }) });
-        const result = await parseResponse<ImportResult>(response); if (!response.ok) throw new Error(result.error || `Não foi possível atualizar ${target}.`);
-        updates[target] = result.rows ?? []; imported += result.rows?.length ?? 0; duplicates += result.duplicates ?? 0; if (result.cashFlow) cashFlow = result.cashFlow;
+        for (let start = 0; start < rows.length; start += 400) {
+          const batch = rows.slice(start, start + 400);
+          const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "bulk-create", sheet: target, rows: batch }) });
+          const result = await parseResponse<ImportResult>(response); if (!response.ok) throw new Error(result.error || `Não foi possível atualizar ${target}.`);
+          updates[target] = [...(updates[target] ?? []), ...(result.rows ?? [])];
+          imported += result.rows?.length ?? 0; duplicates += result.duplicates ?? 0; if (result.cashFlow) cashFlow = result.cashFlow;
+        }
       }
       if (learn) {
         const rules = [...new Map(selected.map((item) => [item.ruleKey, { key: item.ruleKey, target: item.target, category: item.category, costRelation: item.costRelation, costBehavior: item.costBehavior, origin: item.origin, destination: item.destination, bank: analysis?.bank }])).values()];
-        const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "learn-bank-rules", sheet: "Configurações", rules }) });
-        const result = await parseResponse<{ error?: string }>(response); if (!response.ok) throw new Error(result.error || "Os lançamentos foram salvos, mas as regras não foram atualizadas.");
+        for (let start = 0; start < rules.length; start += 400) {
+          const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "learn-bank-rules", sheet: "Configurações", rules: rules.slice(start, start + 400) }) });
+          const result = await parseResponse<{ error?: string }>(response); if (!response.ok) throw new Error(result.error || "Os lançamentos foram salvos, mas as regras não foram atualizadas.");
+        }
       }
       onImported(updates, cashFlow, imported, duplicates);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível concluir a importação."); } finally { setImporting(false); }
@@ -147,6 +153,6 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
       <div className="bank-review"><table><thead><tr><th>Importar</th><th>Data</th><th>Movimento</th><th>Favorecido/Pagador</th><th>Valor</th><th>Destino do lançamento</th><th>Categoria</th><th>Origem</th><th>Destino</th><th>Relação</th><th>Comportamento</th><th>Precisão</th></tr></thead><tbody>{analysis.transactions.map((item) => { const duplicate = isDuplicate(item); return <tr key={item.id} className={duplicate ? "duplicate-row" : item.confidence === "Baixa" ? "review-row" : ""}><td><input type="checkbox" checked={item.selected && !duplicate} disabled={duplicate || item.target === "Ignorar"} onChange={(event) => update(item.id, { selected: event.target.checked })}/>{duplicate && <small>Duplicado</small>}</td><td><input type="date" value={item.date} onChange={(event) => update(item.id, { date: event.target.value })}/></td><td><span className={`movement ${item.movement}`}>{item.movement === "credit" ? "Entrada" : "Saída"}</span></td><td><input value={item.counterparty} onChange={(event) => update(item.id, { counterparty: event.target.value })}/><small>{item.document || item.suggestionSource}</small></td><td><strong>{brl(item.amount)}</strong></td><td><select value={item.target} onChange={(event) => update(item.id, { target: event.target.value as BankTransaction["target"], selected: event.target.value !== "Ignorar" })}><option>Contas a Receber</option><option>Contas a Pagar</option><option>Transferências</option><option>Ignorar</option></select></td><td><input list="bank-categories" value={item.category} onChange={(event) => update(item.id, { category: event.target.value })}/></td><td><input value={item.origin} onChange={(event) => update(item.id, { origin: event.target.value })}/></td><td><input value={item.destination} onChange={(event) => update(item.id, { destination: event.target.value })}/></td><td><select value={item.costRelation} onChange={(event) => update(item.id, { costRelation: event.target.value })}><option>Direto</option><option>Indireto</option></select></td><td><select value={item.costBehavior} onChange={(event) => update(item.id, { costBehavior: event.target.value })}><option>Fixo</option><option>Variável</option></select></td><td><span className={`confidence ${normalize(item.confidence)}`}>{item.confidence}</span><small>{item.suggestionSource}</small></td></tr>; })}</tbody></table><datalist id="bank-categories">{categories.map((category) => <option key={category} value={category}/>)}</datalist></div>
     </>}
     {error && <div className="invoice-import-error">{error}</div>}
-    <div className="modal-actions"><button className="cancel-action" onClick={analysis ? () => setAnalysis(null) : onClose} disabled={loading || importing}>{analysis ? "Trocar arquivo" : "Cancelar"}</button>{analysis && <button className="save-action" onClick={commit} disabled={importing || !selected.length}>{importing ? "Importando e conciliando..." : `Confirmar ${selected.length} lançamento(s)`}</button>}</div>
+    <div className="modal-actions">{analysis && <button className="cancel-action" onClick={() => setAnalysis(null)} disabled={loading || importing}>Trocar arquivo</button>}<button className="cancel-action" onClick={onClose} disabled={loading || importing}>Cancelar</button>{analysis && <button className="save-action" onClick={commit} disabled={importing || !selected.length}>{importing ? "Importando e conciliando..." : `Confirmar ${selected.length} lançamento(s)`}</button>}</div>
   </section></div>;
 }

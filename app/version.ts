@@ -1,7 +1,10 @@
 export const release = {
-  version: "VC 1.0.40",
+  version: "VC 1.0.41",
   releasedAt: "18/11/2026",
   improvements: [
+    "Importação bancária sem limite prático, processada automaticamente em lotes seguros",
+    "Botão Cancelar sempre disponível para sair da conferência do extrato",
+    "Rodapé de ações fixo e visível durante a revisão dos lançamentos",
     "Botão Marcar todos para agilizar a seleção dos lançamentos bancários",
     "Seleção em massa protegida contra duplicidades e itens ignorados",
     "Importação adaptativa de extratos em PDF, OFX, QFX, CSV e TXT",
