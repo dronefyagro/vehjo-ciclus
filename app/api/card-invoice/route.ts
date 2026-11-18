@@ -4,6 +4,13 @@ export const maxDuration = 60;
 
 type PdfTextItem = { str?: string; hasEOL?: boolean };
 
+const loadPdfReader = async () => {
+  const { default: DOMMatrix } = await import("@thednp/dommatrix");
+  const browserGlobals = globalThis as Record<string, unknown>;
+  browserGlobals.DOMMatrix ??= DOMMatrix;
+  return import("pdfjs-dist/legacy/build/pdf.mjs");
+};
+
 const normalizeDate = (value: string, referenceYear: number) => {
   const parts = value.split("/").map(Number);
   if (parts.length < 2) return "";
@@ -31,7 +38,7 @@ export async function POST(request: Request) {
     if (file.size > 4 * 1024 * 1024) return NextResponse.json({ error: "O PDF deve ter no máximo 4 MB." }, { status: 413 });
 
     const data = new Uint8Array(await file.arrayBuffer());
-    const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const { getDocument } = await loadPdfReader();
     const document = await getDocument({ data, useSystemFonts: true }).promise;
     const pageTexts: string[] = [];
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {

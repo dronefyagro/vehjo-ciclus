@@ -1,6 +1,6 @@
 {
   "name": "vehjo-ciclus",
-  "version": "1.0.32",
+  "version": "1.0.33",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@thednp/dommatrix": "^2.0.12",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "pdfjs-dist": "^5.4.394",
