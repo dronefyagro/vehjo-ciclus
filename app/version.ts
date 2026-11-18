@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.37",
+  version: "VC 1.0.38",
   releasedAt: "18/11/2026",
   improvements: [
+    "Total geral de clientes calculado automaticamente pela aba Clientes",
+    "Total de fazendas calculado automaticamente pela aba Fazendas",
+    "Hectares na base apurados pela soma da Área Total das fazendas",
+    "Indicadores cadastrais separados dos contratos vigentes",
     "Saldos pendentes calculados automaticamente pelos status financeiros",
     "Receitas e despesas realizadas separadas dos valores em aberto",
     "Alertas e indicadores da Visão Geral sincronizados com a base",
