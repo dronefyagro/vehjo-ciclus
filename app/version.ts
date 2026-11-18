@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.36",
+  version: "VC 1.0.37",
   releasedAt: "18/11/2026",
   improvements: [
+    "Saldos pendentes calculados automaticamente pelos status financeiros",
+    "Receitas e despesas realizadas separadas dos valores em aberto",
+    "Alertas e indicadores da Visão Geral sincronizados com a base",
+    "Leitura automática dos cabeçalhos para evitar cálculos em colunas incorretas",
+    "Datas financeiras apuradas no fuso horário de Brasília",
     "Nova área Importar Extrato no módulo Financeiro",
     "Importação de extratos bancários nos formatos OFX e CSV",
     "Créditos enviados para Contas a Receber como Recebido",
