@@ -1,7 +1,13 @@
 export const release = {
-  version: "VC 1.0.35",
+  version: "VC 1.0.36",
   releasedAt: "18/11/2026",
   improvements: [
+    "Nova área Importar Extrato no módulo Financeiro",
+    "Importação de extratos bancários nos formatos OFX e CSV",
+    "Créditos enviados para Contas a Receber como Recebido",
+    "Débitos enviados para Contas a Pagar como Pago",
+    "Bloqueio de duplicidades por transação, data, valor e contraparte",
+    "Conferência obrigatória antes da gravação dos lançamentos",
     "Compatibilidade validada com faturas empresariais do Sicredi",
     "Leitura de datas com meses abreviados, como out e nov",
     "Reconhecimento de compras descritas em mais de uma linha",

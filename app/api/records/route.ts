@@ -18,6 +18,31 @@ const completeFinancialPeriod = (sheet: string, values: string[]) => {
   values[16] = year;
 };
 
+const financialNumber = (input: unknown) => {
+  const raw = String(input ?? "0").replace(/[^\d,.-]/g, "");
+  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  return Math.abs(Number(normalized) || 0);
+};
+
+const financialDate = (input: unknown) => {
+  const raw = String(input ?? "").trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2].padStart(2, "0")}-${br[1].padStart(2, "0")}`;
+  if (/^\d{5}$/.test(raw)) return new Date(Date.UTC(1899, 11, 30) + Number(raw) * 86400000).toISOString().slice(0, 10);
+  return raw;
+};
+
+const normalizedFinancialKey = (row: string[]) => {
+  const date = financialDate(row[1]);
+  const value = financialNumber(row[14]).toFixed(2);
+  const normalize = (item: unknown) => String(item ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+  const destination = normalize(row[13]);
+  const counterparty = destination && destination !== "dronefy" ? destination : normalize(row[12]) || normalize(row[11]) || normalize(row[10]);
+  return `${date}|${value}|${counterparty}`;
+};
+
 const syncCashFlow = async (spreadsheetId: string, headers: Record<string, string>) => {
   const params = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE" });
   params.append("ranges", "'Contas a Receber'!A1:Q10000");
@@ -48,23 +73,34 @@ export async function POST(request: Request) {
     const token = await getAccessToken();
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 
-    let generatedCode: string | undefined;
+    let generatedCode: string | undefined, imported: number | undefined, skipped = 0;
     if (action === "bulk-create") {
       if (!rows?.length || rows.length > 500) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos." }, { status: 400 });
-      const codeRange = encodeURIComponent(`'${sheet}'!A2:A10000`);
+      const financialSheet = sheet === "Contas a Receber" || sheet === "Contas a Pagar";
+      const codeRange = encodeURIComponent(`'${sheet}'!A2:${financialSheet ? "Q" : "A"}10000`);
       const codeResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${codeRange}`, { headers });
       const codeData = await codeResponse.json() as { values?: string[][] };
       const highestCode = (codeData.values ?? []).reduce((highest, row) => { const digits = String(row[0] ?? "").match(/\d+/g)?.join(""); return Math.max(highest, digits ? Number(digits) : 0); }, 0);
+      const existingKeys = financialSheet ? new Set((codeData.values ?? []).map((row) => normalizedFinancialKey(row.map(String)))) : new Set<string>();
       const submittedRows = rows.map((source, index) => {
         const submitted = [...source];
         submitted[0] = String(highestCode + index + 1);
-        if (sheet === "Contas a Pagar") submitted[14] = String(Math.abs(Number(String(submitted[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+        if (sheet === "Contas a Pagar") submitted[14] = String(financialNumber(submitted[14]));
         completeFinancialPeriod(sheet, submitted);
         return submitted;
+      }).filter((row) => {
+        if (!financialSheet) return true;
+        const key = normalizedFinancialKey(row);
+        if (existingKeys.has(key)) { skipped += 1; return false; }
+        existingKeys.add(key);
+        return true;
       });
-      const range = encodeURIComponent(`'${sheet}'!A:Z`);
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: submittedRows }) });
-      if (!response.ok) throw new Error("Não foi possível importar os lançamentos.");
+      imported = submittedRows.length;
+      if (submittedRows.length) {
+        const range = encodeURIComponent(`'${sheet}'!A:Z`);
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: submittedRows }) });
+        if (!response.ok) throw new Error("Não foi possível importar os lançamentos.");
+      }
     } else if (action === "create") {
       const submittedValues = [...(values ?? [])];
       let existingCodeCount = 0;
@@ -84,7 +120,7 @@ export async function POST(request: Request) {
         submittedValues[9] = `=IF(A${targetRow}="";"";H${targetRow}*I${targetRow})`;
         submittedValues[10] = `=IF(A${targetRow}="";"";G${targetRow}-TODAY())`;
       }
-      if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+      if (sheet === "Contas a Pagar") submittedValues[14] = String(financialNumber(submittedValues[14]));
       completeFinancialPeriod(sheet, submittedValues);
       const range = encodeURIComponent(`'${sheet}'!A:Z`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: [submittedValues] }) });
@@ -97,7 +133,7 @@ export async function POST(request: Request) {
         submittedValues[9] = `=IF(A${rowIndex}="";"";H${rowIndex}*I${rowIndex})`;
         submittedValues[10] = `=IF(A${rowIndex}="";"";G${rowIndex}-TODAY())`;
       }
-      if (sheet === "Contas a Pagar") submittedValues[14] = String(Math.abs(Number(String(submittedValues[14] ?? "0").replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")) || 0));
+      if (sheet === "Contas a Pagar") submittedValues[14] = String(financialNumber(submittedValues[14]));
       completeFinancialPeriod(sheet, submittedValues);
       const range = encodeURIComponent(`'${sheet}'!A${rowIndex}:${column(submittedValues.length)}${rowIndex}`);
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`, { method: "PUT", headers, body: JSON.stringify({ values: [submittedValues] }) });
@@ -111,7 +147,7 @@ export async function POST(request: Request) {
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" ? await syncCashFlow(spreadsheetId, headers) : undefined;
-    return NextResponse.json({ ok: true, code: generatedCode, imported: action === "bulk-create" ? rows?.length : undefined, cashFlow });
+    return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
   }
