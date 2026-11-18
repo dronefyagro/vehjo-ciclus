@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.33",
+  version: "VC 1.0.34",
   releasedAt: "18/11/2026",
   improvements: [
+    "Inclusão do processador auxiliar de PDF no pacote publicado",
+    "Correção do erro de fake worker na importação de faturas",
     "Compatibilidade do leitor de PDF com o servidor da plataforma",
     "Correção do erro DOMMatrix na importação de faturas",
     "Correção do envio e processamento de faturas em PDF",
