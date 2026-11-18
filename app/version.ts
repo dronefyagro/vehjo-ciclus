@@ -1,7 +1,10 @@
 export const release = {
-  version: "VC 1.0.42",
+  version: "VC 1.0.43",
   releasedAt: "18/11/2026",
   improvements: [
+    "Total recebido e total pago recalculados pelo exercício selecionado",
+    "Gráfico mensal de recebimentos e pagamentos realizados no ano vigente",
+    "Comparativo anual de entradas e saídas efetivamente liquidadas",
     "Quadros dos módulos recalculados automaticamente pelo exercício selecionado",
     "Totalizadores mensais e anuais alinhados ao ano do filtro",
     "Custos e valores patrimoniais sincronizados com a seleção de exercício",
