@@ -1,12 +1,12 @@
 export const release = {
-  version: "VC 1.0.29",
+  version: "VC 1.0.30",
   releasedAt: "18/11/2026",
   improvements: [
-    "Alertas da Visão Geral com acesso direto aos lançamentos",
-    "Prioridades da operação vinculadas aos respectivos registros",
-    "Busca automática pelo código do item selecionado",
-    "Total pendente do mês atual em Contas a Receber e a Pagar",
-    "Total pendente do ano atual em Contas a Receber e a Pagar",
+    "Classificação de custos diretos e indiretos",
+    "Classificação de custos fixos e variáveis",
+    "Filtros gerenciais por tipo de custo",
+    "Totalizadores financeiros por classificação",
+    "Novos lançamentos com campos de custo padronizados",
   ],
 } as const;
 
