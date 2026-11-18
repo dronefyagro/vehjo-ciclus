@@ -1,7 +1,10 @@
 export const release = {
-  version: "VC 1.0.41",
+  version: "VC 1.0.42",
   releasedAt: "18/11/2026",
   improvements: [
+    "Quadros dos módulos recalculados automaticamente pelo exercício selecionado",
+    "Totalizadores mensais e anuais alinhados ao ano do filtro",
+    "Custos e valores patrimoniais sincronizados com a seleção de exercício",
     "Importação bancária sem limite prático, processada automaticamente em lotes seguros",
     "Botão Cancelar sempre disponível para sair da conferência do extrato",
     "Rodapé de ações fixo e visível durante a revisão dos lançamentos",
