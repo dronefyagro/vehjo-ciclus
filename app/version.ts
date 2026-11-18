@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.39",
+  version: "VC 1.0.40",
   releasedAt: "18/11/2026",
   improvements: [
+    "Botão Marcar todos para agilizar a seleção dos lançamentos bancários",
+    "Seleção em massa protegida contra duplicidades e itens ignorados",
     "Importação adaptativa de extratos em PDF, OFX, QFX, CSV e TXT",
     "Identificação automática do banco, entradas, saídas, origem e destino",
     "Conferência por nível de confiança antes de salvar",
