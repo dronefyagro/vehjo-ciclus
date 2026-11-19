@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.44",
+  version: "VC 1.0.45",
   releasedAt: "18/11/2026",
   improvements: [
+    "Grids reorganizados com larguras proporcionais ao conteúdo de cada coluna",
+    "Textos longos quebrados em múltiplas linhas sem sobreposição entre células",
+    "Primeira coluna fixa e rolagem horizontal sincronizada no topo do grid",
+    "Linhas mais altas, alternadas e com melhor espaçamento para leitura",
     "Identificação bancária prioriza BANKID, ACCTID, nome e cabeçalho do arquivo",
     "Banco e conta podem ser corrigidos antes da confirmação da importação",
     "Detecção consistente de banco e conta em PDF, OFX, QFX, CSV e TXT",
