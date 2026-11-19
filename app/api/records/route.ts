@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAccessToken, SHEET_NAMES } from "../../lib/google-sheets";
+import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "../../lib/invoice-analysis";
 
 const column = (size: number) => {
   let result = "";
@@ -43,6 +44,26 @@ const normalizedFinancialKey = (row: string[]) => {
   return `${date}|${value}|${counterparty}`;
 };
 
+const ensureInvoiceAnalysisSheet = async (spreadsheetId: string, headers: Record<string, string>) => {
+  const metadata = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, { headers });
+  if (!metadata.ok) throw new Error("Não foi possível conferir a área de análise de faturas.");
+  const info = await metadata.json() as { sheets?: Array<{ properties: { title: string } }> };
+  if (info.sheets?.some((item) => item.properties.title === INVOICE_ANALYSIS_SHEET)) return;
+  const create = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: INVOICE_ANALYSIS_SHEET, gridProperties: { rowCount: 5000, columnCount: INVOICE_ANALYSIS_HEADERS.length } } } }] }),
+  });
+  if (!create.ok) throw new Error("Não foi possível criar a área de análise de faturas.");
+  const range = encodeURIComponent(`'${INVOICE_ANALYSIS_SHEET}'!A1:M1`);
+  const write = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ values: [[...INVOICE_ANALYSIS_HEADERS]] }),
+  });
+  if (!write.ok) throw new Error("A área foi criada, mas os campos analíticos não puderam ser preparados.");
+};
+
 const syncCashFlow = async (spreadsheetId: string, headers: Record<string, string>) => {
   const params = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE" });
   params.append("ranges", "'Contas a Receber'!A1:Q10000");
@@ -72,6 +93,7 @@ export async function POST(request: Request) {
     if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
     const token = await getAccessToken();
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    if (sheet === INVOICE_ANALYSIS_SHEET) await ensureInvoiceAnalysisSheet(spreadsheetId, headers);
 
     if (action === "learn-bank-rules") {
       const validRules = (rules ?? []).filter((rule) => rule.key && rule.target && rule.category).slice(0, 500);

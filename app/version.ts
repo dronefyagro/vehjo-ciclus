@@ -1,7 +1,16 @@
 export const release = {
-  version: "VC 1.0.46",
-  releasedAt: "18/11/2026",
+  version: "VC 1.0.47",
+  releasedAt: "19/11/2026",
   improvements: [
+    "Nova área Análise de Faturas dentro do Financeiro",
+    "Itens do cartão separados de Contas a Pagar e do Fluxo de Caixa",
+    "Pagamento da fatura reconhecido somente pelo débito do extrato bancário",
+    "Importação de PDF para análise de estabelecimentos, categorias e tipos de custo",
+    "Indicadores de total analisado, ticket médio e categorias identificadas",
+    "Rankings dos maiores destinos dos recursos e custos por categoria",
+    "Filtro por exercício e pesquisa dos itens analisados",
+    "Proteção contra duplicidade na análise de faturas",
+    "Correção do status A pagar para não ser interpretado como Pago",
     "Cadastro de Contas Bancárias simplificado para dados próprios da instituição e da conta",
     "Campos reorganizados em nome do banco, agência, conta, código bancário e saldo atual",
     "Colunas operacionais ocultadas do formulário bancário sem perda dos registros existentes",

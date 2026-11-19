@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "./invoice-analysis";
 
 export type SheetRow = string[];
 
@@ -27,6 +28,7 @@ export const SHEET_NAMES = [
   "Recursos Humanos",
   "Patrimônio",
   "Configurações",
+  INVOICE_ANALYSIS_SHEET,
 ] as const;
 
 const b64url = (value: string | Buffer) =>
@@ -87,7 +89,8 @@ export async function getVehjoData(): Promise<VehjoData> {
   try {
     const token = await getAccessToken();
     const params = new URLSearchParams();
-    for (const name of SHEET_NAMES) params.append("ranges", `'${name}'!A1:Z5000`);
+    const requiredSheets = SHEET_NAMES.filter((name) => name !== INVOICE_ANALYSIS_SHEET);
+    for (const name of requiredSheets) params.append("ranges", `'${name}'!A1:Z5000`);
     params.set("majorDimension", "ROWS");
     params.set("valueRenderOption", "FORMATTED_VALUE");
     const response = await fetch(
@@ -99,9 +102,18 @@ export async function getVehjoData(): Promise<VehjoData> {
       valueRanges?: Array<{ range: string; values?: SheetRow[] }>;
     };
     const sheets: Record<string, SheetRow[]> = {};
-    SHEET_NAMES.forEach((name, index) => {
+    requiredSheets.forEach((name, index) => {
       sheets[name] = body.valueRanges?.[index]?.values ?? [];
     });
+    const analysisRange = encodeURIComponent(`'${INVOICE_ANALYSIS_SHEET}'!A1:M5000`);
+    const analysisResponse = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${analysisRange}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`,
+      { headers: { authorization: `Bearer ${token}` }, next: { revalidate: 60 } },
+    );
+    if (analysisResponse.ok) {
+      const analysis = await analysisResponse.json() as { values?: SheetRow[] };
+      sheets[INVOICE_ANALYSIS_SHEET] = analysis.values?.length ? analysis.values : [[...INVOICE_ANALYSIS_HEADERS]];
+    } else sheets[INVOICE_ANALYSIS_SHEET] = [[...INVOICE_ANALYSIS_HEADERS]];
     return { connected: true, sheets, updatedAt: new Date().toISOString() };
   } catch (error) {
     return {
