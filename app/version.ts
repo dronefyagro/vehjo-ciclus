@@ -1,7 +1,15 @@
 export const release = {
-  version: "VC 1.0.51",
+  version: "VC 1.0.52",
   releasedAt: "19/11/2026",
   improvements: [
+    "Nova aba Análise de Despesas no módulo Financeiro",
+    "Dashboard alimentado automaticamente pelos lançamentos de Contas a Pagar",
+    "Ranking das maiores despesas em ordem decrescente com acesso ao lançamento",
+    "Identificação de despesas recorrentes por favorecido e competência",
+    "Análise dos custos de combustível, carro, hospedagem e alimentação",
+    "Separação entre custos vinculados à operação e valores pendentes de rateio",
+    "Gráfico de Pareto das despesas por categoria e percentual acumulado",
+    "Filtros por exercício, status, categoria e pesquisa textual",
     "Revisão geral de engenharia com validação estática, testes automatizados e verificação de tipos",
     "Proteção das rotas de alteração contra solicitações originadas por outros sites",
     "Autenticação obrigatória e única antes do acesso às páginas e APIs da plataforma",

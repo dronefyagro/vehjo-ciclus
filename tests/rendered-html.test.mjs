@@ -59,3 +59,16 @@ test("protege páginas e APIs com uma única autenticação", async () => {
   assert.match(accessProxy, /CICLUS_ACCESS_PASSWORD_SHA256/);
   assert.match(accessProxy, /X-Robots-Tag/);
 });
+
+test("oferece análise automática de despesas com recorrência e Pareto", async () => {
+  const [dashboard, expenseAnalysis] = await Promise.all([read("app/dashboard-client.tsx"), read("app/expense-analysis.tsx")]);
+  assert.match(dashboard, /label: "Análise de Despesas"/);
+  assert.match(dashboard, /active === "Análise de Despesas" \? <ExpenseAnalysis/);
+  assert.match(expenseAnalysis, /data\.sheets\["Contas a Pagar"\]/);
+  assert.match(expenseAnalysis, /PARETO DAS DESPESAS/);
+  assert.match(expenseAnalysis, /Despesas que se repetem/);
+  assert.match(expenseAnalysis, /Monitoramento de Pragas e Aplicação com drone/);
+  assert.match(expenseAnalysis, /Combustível/);
+  assert.match(expenseAnalysis, /Hospedagem/);
+  assert.match(expenseAnalysis, /Alimentação/);
+});
