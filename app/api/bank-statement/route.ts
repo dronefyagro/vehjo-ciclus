@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { identifyBankAccount } from "../../lib/bank-identification";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -54,16 +55,6 @@ const ruleKey = (transaction: Pick<RawTransaction, "document" | "counterparty">)
     .replace(/\s+/g, " ").trim();
   return `nome:${name.slice(0, 72)}`;
 };
-const detectBank = (text: string, fileName: string) => {
-  const source = normalize(`${fileName} ${text.slice(0, 12000)}`);
-  const banks: Array<[RegExp, string]> = [
-    [/\bcora\b/, "Cora"], [/\bsicredi\b/, "Sicredi"], [/\bsicoob\b/, "Sicoob"], [/\bnubank\b|nu pagamentos/, "Nubank"],
-    [/\bitau\b/, "Itaú"], [/\bsantander\b/, "Santander"], [/\bbradesco\b/, "Bradesco"], [/banco do brasil|\bbb\b/, "Banco do Brasil"],
-    [/caixa economica|\bcaixa\b/, "Caixa"], [/banco inter|\binter\b/, "Inter"], [/mercado pago/, "Mercado Pago"], [/pagbank|pagseguro/, "PagBank"],
-  ];
-  return banks.find(([pattern]) => pattern.test(source))?.[1] ?? "Banco não identificado";
-};
-
 const tag = (block: string, name: string) => block.match(new RegExp(`<${name}>\\s*([^<\\r\\n]+)`, "i"))?.[1]?.trim() ?? "";
 const parseOfx = (text: string): RawTransaction[] => [...text.matchAll(/<STMTTRN>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN>|<\/BANKTRANLIST>))/gi)].map((match) => {
   const block = match[1];
@@ -200,8 +191,7 @@ export async function POST(request: Request) {
     if (extension === "pdf") { const extracted = await extractPdf(bytes); text = extracted.text; pages = extracted.pages; transactions = parsePdfBlocks(text); parser = "PDF adaptativo"; }
     else { text = new TextDecoder("utf-8").decode(bytes); if (/OFX|STMTTRN/i.test(text) || extension === "ofx" || extension === "qfx") { transactions = parseOfx(text); parser = "OFX/QFX"; } else { transactions = parseCsv(text); parser = "CSV/TXT adaptativo"; } }
     if (!transactions.length) return NextResponse.json({ error: "Não foi possível reconhecer movimentações neste formato. Verifique se o PDF possui texto selecionável ou exporte o extrato em OFX/CSV." }, { status: 422 });
-    const bank = detectBank(text, file.name); const companyDocument = text.match(/(?:CNPJ|CPF)[^\d]{0,12}(\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1] ?? "";
-    const account = text.match(/(?:conta|account)[^\d]{0,10}([\d.-]{4,})/i)?.[1] ?? ""; const accountLabel = [bank, account ? `Conta ${account}` : ""].filter(Boolean).join(" · ");
+    const { bank, account, accountLabel } = identifyBankAccount({ text, fileName: file.name, extension }); const companyDocument = text.match(/(?:CNPJ|CPF)[^\d]{0,12}(\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1] ?? "";
     const externalIds = new Set<string>();
     const unique = transactions.filter((transaction) => { if (!transaction.externalId) return true; if (externalIds.has(transaction.externalId)) return false; externalIds.add(transaction.externalId); return true; });
     const classified = unique.map((transaction, index) => { const result = classify(transaction, accountLabel, companyDocument, learnedRules); return { ...result, id: transaction.externalId || `${result.id}|${index + 1}` }; });

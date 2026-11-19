@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.43",
+  version: "VC 1.0.44",
   releasedAt: "18/11/2026",
   improvements: [
+    "Identificação bancária prioriza BANKID, ACCTID, nome e cabeçalho do arquivo",
+    "Banco e conta podem ser corrigidos antes da confirmação da importação",
+    "Detecção consistente de banco e conta em PDF, OFX, QFX, CSV e TXT",
+    "Nomes de bancos presentes nas movimentações não substituem o banco do extrato",
     "Total recebido e total pago recalculados pelo exercício selecionado",
     "Gráfico mensal de recebimentos e pagamentos realizados no ano vigente",
     "Comparativo anual de entradas e saídas efetivamente liquidadas",
