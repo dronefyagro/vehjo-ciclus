@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rejectUnsafeMutation } from "../../lib/api-guard";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -44,10 +45,12 @@ const cleanMerchant = (value: string) => value
   .replace(/^.*?\b(?:presencial|online)\s+/i, "")
   .replace(/\s+Com\s+C\s+BRL\b.*$/i, "")
   .replace(/\s{2,}/g, " ")
-  .replace(/\s+(?:parcela\s*)?\d{1,2}\s*[\/]\s*\d{1,2}\s*$/i, "")
+  .replace(/\s+(?:parcela\s*)?\d{1,2}\s*[/]\s*\d{1,2}\s*$/i, "")
   .trim();
 
 export async function POST(request: Request) {
+  const rejected = rejectUnsafeMutation(request);
+  if (rejected) return rejected;
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -107,7 +110,7 @@ export async function POST(request: Request) {
         const value = parseMoney(lastMoney[1]);
         if (!merchant || !value || /pagamento|saldo\s+anterior|total\s+(?:da|desta)\s+fatura|fechamento|encargos|limite/i.test(merchant)) continue;
         const date = normalizeInvoiceDate(block.day, block.month, block.year, dueDate || `${referenceYear}-12-01`);
-        const installmentMatch = rawMerchant.match(/(?:parcela\s*)?(\d{1,2})\s*[\/]\s*(\d{1,2})/i);
+        const installmentMatch = rawMerchant.match(/(?:parcela\s*)?(\d{1,2})\s*[/]\s*(\d{1,2})/i);
         const installment = installmentMatch ? `${installmentMatch[1]}/${installmentMatch[2]}` : "";
         const key = `${date}|${merchant.toLocaleLowerCase("pt-BR")}|${value.toFixed(2)}`;
         if (seen.has(key)) continue;

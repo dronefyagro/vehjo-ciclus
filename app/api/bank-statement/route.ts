@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { identifyBankAccount } from "../../lib/bank-identification";
+import { rejectUnsafeMutation } from "../../lib/api-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -180,6 +181,8 @@ const classify = (transaction: RawTransaction, accountLabel: string, companyDocu
 };
 
 export async function POST(request: Request) {
+  const rejected = rejectUnsafeMutation(request, 16 * 1024 * 1024);
+  if (rejected) return rejected;
   try {
     const form = await request.formData(); const file = form.get("file"); if (!(file instanceof File)) return NextResponse.json({ error: "Selecione um extrato bancário." }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "O extrato deve ter no máximo 15 MB." }, { status: 400 });

@@ -1,92 +1,61 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
+const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-}
-
-test("server-renders the starter loading skeleton", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+test("mantém a versão visível alinhada ao pacote", async () => {
+  const [versionSource, packageSource] = await Promise.all([read("app/version.ts"), read("package.json")]);
+  const release = versionSource.match(/version:\s*"VC\s+([\d.]+)"/)?.[1];
+  assert.equal(release, JSON.parse(packageSource).version);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
-  ]);
-
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
-
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
-
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
+test("protege todas as rotas de mutação contra requisições externas", async () => {
+  const routes = await Promise.all([read("app/api/records/route.ts"), read("app/api/bank-statement/route.ts"), read("app/api/card-invoice/route.ts")]);
+  for (const route of routes) {
+    assert.match(route, /rejectUnsafeMutation\(request(?:,[^)]+)?\)/);
+    assert.match(route, /if \(rejected\) return rejected/);
+  }
 });
 
+test("grava dados importados como valores literais", async () => {
+  const recordsRoute = await read("app/api/records/route.ts");
+  assert.match(recordsRoute, /bulk-create[\s\S]*valueInputOption=RAW/);
+  assert.match(recordsRoute, /syncCashFlow[\s\S]*valueInputOption=RAW/);
+  assert.match(recordsRoute, /sheet === "Contratos" \? "USER_ENTERED" : "RAW"/);
+});
+
+test("valida módulos, células, lotes e linhas antes de alterar a base", async () => {
+  const [recordsRoute, guard] = await Promise.all([read("app/api/records/route.ts"), read("app/lib/api-guard.ts")]);
+  assert.match(recordsRoute, /SHEET_NAMES\.includes/);
+  assert.match(recordsRoute, /normalizeCells\(payload\.values\)/);
+  assert.match(recordsRoute, /normalizeRows\(payload\.rows\)/);
+  assert.match(recordsRoute, /validSheetRowIndex/);
+  assert.match(guard, /MAX_CELL_LENGTH = 2_000/);
+  assert.match(guard, /MAX_COLUMNS = 26/);
+});
+
+test("exibe Configurações pela tela especializada e usa imagens otimizadas", async () => {
+  const dashboard = await read("app/dashboard-client.tsx");
+  assert.match(dashboard, /active === "Configurações" \? <Settings/);
+  assert.match(dashboard, /from "next\/image"/);
+  assert.doesNotMatch(dashboard, /<img\b/);
+  assert.doesNotMatch(dashboard, /Date\.now\(\)/);
+});
+
+test("aplica cabeçalhos de segurança e evita cache de dados privados", async () => {
+  const config = await read("next.config.ts");
+  assert.match(config, /X-Content-Type-Options/);
+  assert.match(config, /X-Frame-Options/);
+  assert.match(config, /Cache-Control/);
+  assert.match(config, /private, no-store/);
+});
+
+test("protege páginas e APIs com uma única autenticação", async () => {
+  const accessProxy = await read("proxy.ts");
+  assert.match(accessProxy, /export function proxy/);
+  assert.match(accessProxy, /WWW-Authenticate/);
+  assert.match(accessProxy, /timingSafeEqual/);
+  assert.match(accessProxy, /CICLUS_ACCESS_PASSWORD_SHA256/);
+  assert.match(accessProxy, /X-Robots-Tag/);
+});
