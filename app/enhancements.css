@@ -27,3 +27,25 @@
 .base-heading{margin-top:-10px}.base-metrics{grid-template-columns:repeat(3,1fr);margin-top:0}.base-metrics article{border-top:3px solid #22c55e}.base-metrics small{line-height:1.45}.base-metrics small:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);flex:0 0 6px}@media(max-width:900px){.base-metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.base-metrics{grid-template-columns:1fr}}
 
 .analysis-only-note{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:-8px 0 22px;border:1px solid #b9dfc7;border-radius:12px;background:#effaf3;color:#0c5d3d}.analysis-only-note .icon{width:22px;height:22px;flex:0 0 auto}.analysis-only-note strong,.analysis-only-note span{display:block}.analysis-only-note strong{font-size:11px;margin-bottom:4px}.analysis-only-note span{font-size:8px;line-height:1.6;color:#4d6f60}.card-cost-page .report-hub-filters{grid-template-columns:2fr 1fr}.invoice-analysis-summary{grid-template-columns:repeat(5,1fr)}.invoice-analysis-charts{grid-template-columns:1fr 1fr}.compact-action{min-width:78px;min-height:30px}@media(max-width:900px){.invoice-analysis-summary{grid-template-columns:repeat(2,1fr)}.invoice-analysis-charts{grid-template-columns:1fr}}@media(max-width:650px){.card-cost-page .report-hub-filters,.invoice-analysis-summary{grid-template-columns:1fr}}
+
+.loan-filters{grid-template-columns:1.6fr repeat(4,1fr)}
+.loan-summary{grid-template-columns:repeat(4,1fr)}
+.loan-summary strong.negative,.loan-origin-grid .negative{color:#b94134}
+.loan-origin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+.loan-origin-grid article{padding:18px;border-top:3px solid #22c55e}
+.loan-origin-grid article>span{font-size:7px;letter-spacing:1px;color:#2f835a;font-weight:800}
+.loan-origin-grid h3{font-size:14px;margin:7px 0 14px}
+.loan-origin-grid dl{margin:0;display:grid;gap:8px}
+.loan-origin-grid dl div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf2ef;padding-bottom:7px}
+.loan-origin-grid dt,.loan-origin-grid dd{font-size:9px;margin:0}
+.loan-origin-grid dt{color:var(--muted)}
+.loan-origin-grid dd{font-weight:800}
+.loan-origin-grid small{display:block;margin-top:12px;color:var(--muted);font-size:7px}
+.loan-kind{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:8px;font-weight:800;white-space:nowrap}
+.loan-kind.received{background:#e4f8eb;color:#08723c}
+.loan-kind.made{background:#fff0ed;color:#a84034}
+.source-record-action{border:1px solid #b9dfc7;border-radius:7px;background:#effaf3;color:#0b6840;padding:7px 11px;font:700 9px var(--font-montserrat),sans-serif;cursor:pointer}
+.source-record-action:hover{background:#daf2e3}
+@media(max-width:1050px){.loan-filters{grid-template-columns:repeat(2,1fr)}.loan-summary{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:750px){.loan-origin-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.loan-filters,.loan-summary{grid-template-columns:1fr}}

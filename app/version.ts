@@ -1,7 +1,14 @@
 export const release = {
-  version: "VC 1.0.47",
+  version: "VC 1.0.48",
   releasedAt: "19/11/2026",
   improvements: [
+    "Nova aba Empréstimos dentro do módulo Financeiro",
+    "Consolidação automática dos empréstimos registrados em Contas a Receber e Contas a Pagar",
+    "Classificação dos lançamentos em empréstimos recebidos e empréstimos feitos",
+    "Identificação das origens AgroSolver, Santos e Carvalho e Sócios",
+    "Filtros por exercício, origem, tipo e status dos empréstimos",
+    "Totalizadores de valores recebidos, feitos e posição líquida",
+    "Acesso ao lançamento de origem sem duplicação dos dados financeiros",
     "Nova área Análise de Faturas dentro do Financeiro",
     "Itens do cartão separados de Contas a Pagar e do Fluxo de Caixa",
     "Pagamento da fatura reconhecido somente pelo débito do extrato bancário",

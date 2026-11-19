@@ -11,7 +11,7 @@ type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<
 
 const nav: Array<{ label: string; icon: IconName; group?: string }> = [
   { label: "Visão geral", icon: "overview", group: "Principal" }, { label: "Clientes", icon: "clients", group: "Operações" }, { label: "Fazendas", icon: "farms" }, { label: "Contratos", icon: "contracts" },
-  { label: "Importar Extrato", icon: "bank", group: "Financeiro" }, { label: INVOICE_ANALYSIS_SHEET, icon: "invoice" }, { label: "Contas a Receber", icon: "receive" }, { label: "Contas a Pagar", icon: "pay" }, { label: "Contas Bancárias", icon: "bank" }, { label: "Fornecedores", icon: "clients" }, { label: "Plano de Contas", icon: "billing" }, { label: "Orçamento", icon: "billing" }, { label: "Transferências", icon: "bank" }, { label: "DRE Gerencial", icon: "billing" }, { label: "Fluxo de Caixa", icon: "bank" }, { label: "Faturamento e DER", icon: "billing" }, { label: "Notas Fiscais", icon: "invoice" },
+  { label: "Importar Extrato", icon: "bank", group: "Financeiro" }, { label: INVOICE_ANALYSIS_SHEET, icon: "invoice" }, { label: "Empréstimos", icon: "bank" }, { label: "Contas a Receber", icon: "receive" }, { label: "Contas a Pagar", icon: "pay" }, { label: "Contas Bancárias", icon: "bank" }, { label: "Fornecedores", icon: "clients" }, { label: "Plano de Contas", icon: "billing" }, { label: "Orçamento", icon: "billing" }, { label: "Transferências", icon: "bank" }, { label: "DRE Gerencial", icon: "billing" }, { label: "Fluxo de Caixa", icon: "bank" }, { label: "Faturamento e DER", icon: "billing" }, { label: "Notas Fiscais", icon: "invoice" },
   { label: "Inteligência de Negócios", icon: "report", group: "Inteligência" },
   { label: "Estoque", icon: "stock", group: "Gestão" }, { label: "Recursos Humanos", icon: "people" }, { label: "Patrimônio", icon: "assets" },
   { label: "Relatórios Operações", icon: "report", group: "Relatórios" }, { label: "Relatórios Financeiro", icon: "report" }, { label: "Relatórios Gestão", icon: "report" }, { label: "Configurações", icon: "settings" },
@@ -135,7 +135,7 @@ export default function DashboardClient({ data }: { data: VehjoData }) {
     {menu && <button className="backdrop" aria-label="Fechar menu" onClick={() => setMenu(false)}/>} 
     <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={install}><Icon name="download"/><span>Baixar plataforma</span></button>}<button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
       {!data.connected && <div className="connection-warning"><strong>Atualização temporariamente indisponível</strong><span>{data.error}</span></div>}
-      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <AdaptiveBankStatementImporter sheets={liveData.sheets} configRows={rows(liveData, "Configurações")} onClose={() => navigateTo("Visão geral")} onImported={(updates, cashFlow) => { setSheetData((current) => { const next = { ...current }; for (const [target, importedRows] of Object.entries(updates)) next[target] = [...(current[target] ?? []), ...importedRows]; if (cashFlow) next["Fluxo de Caixa"] = cashFlow; return next; }); navigateTo("Fluxo de Caixa"); }}/> : active === INVOICE_ANALYSIS_SHEET ? <CardCostAnalysis data={liveData} onChange={setSheetData}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData} initialQuery={moduleQuery}/>}
+      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <AdaptiveBankStatementImporter sheets={liveData.sheets} configRows={rows(liveData, "Configurações")} onClose={() => navigateTo("Visão geral")} onImported={(updates, cashFlow) => { setSheetData((current) => { const next = { ...current }; for (const [target, importedRows] of Object.entries(updates)) next[target] = [...(current[target] ?? []), ...importedRows]; if (cashFlow) next["Fluxo de Caixa"] = cashFlow; return next; }); navigateTo("Fluxo de Caixa"); }}/> : active === INVOICE_ANALYSIS_SHEET ? <CardCostAnalysis data={liveData} onChange={setSheetData}/> : active === "Empréstimos" ? <LoanManagement data={liveData} onNavigate={navigateTo}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : <Module title={active} data={liveData} summary={summary} onChange={setSheetData} initialQuery={moduleQuery}/>}
     </section>
   </main>;
 }
@@ -306,6 +306,61 @@ function CardCostAnalysis({ data, onChange }: { data: VehjoData; onChange: React
   </div>;
 }
 
+const LOAN_ORIGINS = [
+  { label: "AgroSolver", pattern: /agrosolver/ },
+  { label: "Santos e Carvalho", pattern: /santos\s*(?:e|&)\s*carvalho/ },
+  { label: "Sócios", pattern: /\bsocios?\b|aporte\s+de\s+socio|pro\s*labore/ },
+] as const;
+
+type LoanMovement = {
+  source: "Contas a Receber" | "Contas a Pagar";
+  rowIndex: number;
+  code: string;
+  date: string;
+  year: string;
+  type: "Empréstimo recebido" | "Empréstimo feito";
+  origin: string;
+  value: number;
+  status: string;
+  category: string;
+  commitment: string;
+  evidence: string;
+};
+
+function LoanManagement({ data, onNavigate }: { data: VehjoData; onNavigate: (module: string, query?: string) => void }) {
+  const [query, setQuery] = useState(""), [year, setYear] = useState("Todos"), [origin, setOrigin] = useState("Todos"), [type, setType] = useState("Todos"), [status, setStatus] = useState("Todos");
+  const normalize = (value = "") => fixEncoding(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+  const collect = (source: LoanMovement["source"], movementType: LoanMovement["type"]) => {
+    const sheet = data.sheets[source] ?? [], headers = sheet[0] ?? [];
+    const index = (pattern: RegExp) => headers.findIndex((header) => pattern.test(fixEncoding(header).trim()));
+    const codeIndex = index(/^(código|sequência)$/i), dateIndex = index(/^data$|data do lançamento|vencimento/i), yearIndex = index(/^ano$|ano de exercício/i), valueIndex = index(/^valor$|saldo a (receber|pagar)|valor em aberto/i), statusIndex = index(/^status$|situação/i), categoryIndex = index(/categoria contábil|categoria/i), commitmentIndex = index(/^empenho$|descrição/i), originIndex = index(/^origem$/i), payerIndex = index(/^cc pagador$|pagador/i), destinationIndex = index(/^destino$/i);
+    return sheet.slice(1).map((row, rowOffset): LoanMovement | null => {
+      if (!row.some(Boolean)) return null;
+      const identityText = [row[originIndex], row[payerIndex], row[destinationIndex], row[commitmentIndex], row[categoryIndex]].filter(Boolean).join(" | ");
+      const searchable = normalize(identityText || row.join(" | "));
+      const matched = LOAN_ORIGINS.find((item) => item.pattern.test(searchable));
+      if (!matched) return null;
+      const date = dateIndex >= 0 ? isoDate(row[dateIndex] ?? "") : "", rowYear = yearIndex >= 0 ? String(row[yearIndex] ?? "").trim() : date.slice(0, 4);
+      const explicitLoan = /emprest|mutuo|capital de giro|adiantamento|financiamento/.test(searchable);
+      return { source, rowIndex: rowOffset + 2, code: row[codeIndex] ?? "", date, year: rowYear || date.slice(0, 4), type: movementType, origin: matched.label, value: Math.abs(numberValue(row[valueIndex])), status: fixEncoding(row[statusIndex] || "Não informado"), category: fixEncoding(row[categoryIndex] || "Não classificado"), commitment: fixEncoding(row[commitmentIndex] || row[originIndex] || "—"), evidence: explicitLoan ? "Identificado como empréstimo" : "Relacionado pela origem" };
+    }).filter((record): record is LoanMovement => record !== null);
+  };
+  const movements = [...collect("Contas a Receber", "Empréstimo recebido"), ...collect("Contas a Pagar", "Empréstimo feito")].sort((a, b) => b.date.localeCompare(a.date) || b.rowIndex - a.rowIndex);
+  const years = [...new Set(movements.map((record) => record.year).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+  const statuses = [...new Set(movements.map((record) => record.status).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const filtered = movements.filter((record) => (year === "Todos" || record.year === year) && (origin === "Todos" || record.origin === origin) && (type === "Todos" || record.type === type) && (status === "Todos" || record.status === status) && (!query || normalize([record.code, record.origin, record.category, record.commitment, record.status].join(" ")).includes(normalize(query))));
+  const received = filtered.filter((record) => record.type === "Empréstimo recebido").reduce((sum, record) => sum + record.value, 0), made = filtered.filter((record) => record.type === "Empréstimo feito").reduce((sum, record) => sum + record.value, 0), net = received - made;
+  const originTotals = LOAN_ORIGINS.map((item) => { const originRows = filtered.filter((record) => record.origin === item.label), receivedValue = originRows.filter((record) => record.type === "Empréstimo recebido").reduce((sum, record) => sum + record.value, 0), madeValue = originRows.filter((record) => record.type === "Empréstimo feito").reduce((sum, record) => sum + record.value, 0); return { label: item.label, count: originRows.length, received: receivedValue, made: madeValue, net: receivedValue - madeValue }; });
+  return <div className="module-page loan-page">
+    <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="bank"/></span><div><span>GESTÃO FINANCEIRA</span><h2>Empréstimos</h2><p>Movimentações consolidadas de Contas a Receber e Contas a Pagar</p></div></div><span className="secure-status"><Icon name="shield"/> Atualização automática</span></div>
+    <div className="analysis-only-note loan-note"><Icon name="shield"/><div><strong>Consolidação automática e sem duplicidade</strong><span>Contas a Receber são apresentadas como empréstimos recebidos; Contas a Pagar, como empréstimos feitos. Os registros originais permanecem nas abas financeiras.</span></div></div>
+    <div className="report-hub-filters loan-filters"><label><span>Busca</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Código, categoria ou descrição..."/></label><label><span>Exercício</span><select value={year} onChange={(event) => setYear(event.target.value)}><option>Todos</option>{years.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>Origem</span><select value={origin} onChange={(event) => setOrigin(event.target.value)}><option>Todos</option>{LOAN_ORIGINS.map((item) => <option key={item.label}>{item.label}</option>)}</select></label><label><span>Tipo</span><select value={type} onChange={(event) => setType(event.target.value)}><option>Todos</option><option>Empréstimo recebido</option><option>Empréstimo feito</option></select></label><label><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option>Todos</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select></label></div>
+    <div className="module-summary loan-summary"><div><strong>{brl(received)}</strong><span>Empréstimos recebidos</span></div><div><strong>{brl(made)}</strong><span>Empréstimos feitos</span></div><div><strong className={net < 0 ? "negative" : ""}>{brl(net)}</strong><span>Posição líquida</span></div><div><strong>{filtered.length.toLocaleString("pt-BR")}</strong><span>Movimentações encontradas</span></div></div>
+    <div className="loan-origin-grid">{originTotals.map((item) => <article className="card" key={item.label}><span>ORIGEM</span><h3>{item.label}</h3><dl><div><dt>Recebidos</dt><dd>{brl(item.received)}</dd></div><div><dt>Feitos</dt><dd>{brl(item.made)}</dd></div><div><dt>Posição</dt><dd className={item.net < 0 ? "negative" : ""}>{brl(item.net)}</dd></div></dl><small>{item.count} movimentação(ões) no filtro</small></article>)}</div>
+    <section className="card table-card data-grid-card loan-table"><div className="table-toolbar"><strong>Movimentações de empréstimos</strong><span>{filtered.length.toLocaleString("pt-BR")} resultado(s)</span></div><div className="table-scroll"><table style={{ "--table-width": "1650px" } as React.CSSProperties}><colgroup><col style={{ width: 125 }}/><col style={{ width: 145 }}/><col style={{ width: 190 }}/><col style={{ width: 170 }}/><col style={{ width: 135 }}/><col style={{ width: 130 }}/><col style={{ width: 190 }}/><col style={{ width: 270 }}/><col style={{ width: 190 }}/><col style={{ width: 120 }}/></colgroup><thead><tr><th>Data</th><th>Código</th><th>Tipo</th><th>Origem</th><th>Valor</th><th>Status</th><th>Categoria</th><th>Descrição / Empenho</th><th>Conferência</th><th>Ações</th></tr></thead><tbody>{filtered.length ? filtered.map((record) => <tr key={`${record.source}-${record.rowIndex}`}><td>{brazilianDate(record.date) || "—"}</td><td>{record.code || "—"}</td><td><span className={`loan-kind ${record.type === "Empréstimo recebido" ? "received" : "made"}`}>{record.type}</span></td><td><strong>{record.origin}</strong></td><td><strong>{brl(record.value)}</strong></td><td>{record.status}</td><td>{record.category}</td><td title={record.commitment}><span className="cell-text">{record.commitment}</span></td><td>{record.evidence}</td><td><button className="source-record-action" onClick={() => onNavigate(record.source, record.code || record.origin)}>Abrir</button></td></tr>) : <tr><td colSpan={10}><Empty/></td></tr>}</tbody></table></div></section>
+  </div>;
+}
+
 type BankTransaction = { id: string; bankId: string; date: string; description: string; value: number; direction: "credit" | "debit"; selected: boolean };
 type BankAnalysis = { fileName: string; accountLabel: string; format: string; transactions: BankTransaction[]; credits: number; debits: number };
 
@@ -378,7 +433,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.48</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><img src="/ciclus-symbol.svg" alt="Ciclus"/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.49</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;
