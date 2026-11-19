@@ -1,7 +1,13 @@
 export const release = {
-  version: "VC 1.0.49",
+  version: "VC 1.0.50",
   releasedAt: "19/11/2026",
   improvements: [
+    "Identificação protegida dos sócios por códigos na gestão de empréstimos",
+    "Reconciliação do código do sócio entre Contas a Receber e Contas a Pagar",
+    "Filtros individuais para os códigos SJ, SR e SM",
+    "Separação de empréstimos de pró-labore e distribuição de lucros",
+    "Registros sem valor financeiro desconsiderados no rastreamento de empréstimos",
+    "Quadros individuais com valores recebidos e entregues pela Dronefy",
     "Rastreamento do CNPJ 59.059.260/0001-85 na gestão de empréstimos",
     "Reconhecimento das grafias Santos e Cavalho e Santos e Carvalho",
     "Pesquisa de empréstimos pelo CNPJ da origem",

@@ -35,6 +35,7 @@
 .loan-origin-grid article{padding:18px;border-top:3px solid #22c55e}
 .loan-origin-grid article>span{font-size:7px;letter-spacing:1px;color:#2f835a;font-weight:800}
 .loan-origin-grid h3{font-size:14px;margin:7px 0 14px}
+.loan-origin-document{margin:-9px 0 14px;color:var(--muted);font-size:8px}
 .loan-origin-grid dl{margin:0;display:grid;gap:8px}
 .loan-origin-grid dl div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf2ef;padding-bottom:7px}
 .loan-origin-grid dt,.loan-origin-grid dd{font-size:9px;margin:0}
