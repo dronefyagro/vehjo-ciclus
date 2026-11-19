@@ -1,11 +1,16 @@
 export const release = {
-  version: "VC 1.0.48",
+  version: "VC 1.0.49",
   releasedAt: "19/11/2026",
   improvements: [
+    "Rastreamento do CNPJ 59.059.260/0001-85 na gestão de empréstimos",
+    "Reconhecimento das grafias Santos e Cavalho e Santos e Carvalho",
+    "Pesquisa de empréstimos pelo CNPJ da origem",
+    "Alerta para possível duplicidade de data, valor e origem",
+    "Alerta quando a direção bancária diverge da aba financeira",
     "Nova aba Empréstimos dentro do módulo Financeiro",
     "Consolidação automática dos empréstimos registrados em Contas a Receber e Contas a Pagar",
     "Classificação dos lançamentos em empréstimos recebidos e empréstimos feitos",
-    "Identificação das origens AgroSolver, Santos e Carvalho e Sócios",
+    "Identificação das origens AgroSolver, Santos e Cavalho e Sócios",
     "Filtros por exercício, origem, tipo e status dos empréstimos",
     "Totalizadores de valores recebidos, feitos e posição líquida",
     "Acesso ao lançamento de origem sem duplicação dos dados financeiros",

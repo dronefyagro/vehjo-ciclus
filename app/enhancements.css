@@ -44,6 +44,7 @@
 .loan-kind{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:8px;font-weight:800;white-space:nowrap}
 .loan-kind.received{background:#e4f8eb;color:#08723c}
 .loan-kind.made{background:#fff0ed;color:#a84034}
+.loan-origin-cell strong,.loan-origin-cell small{display:block}.loan-origin-cell small{margin-top:4px;color:var(--muted);font-size:7px}
 .source-record-action{border:1px solid #b9dfc7;border-radius:7px;background:#effaf3;color:#0b6840;padding:7px 11px;font:700 9px var(--font-montserrat),sans-serif;cursor:pointer}
 .source-record-action:hover{background:#daf2e3}
 @media(max-width:1050px){.loan-filters{grid-template-columns:repeat(2,1fr)}.loan-summary{grid-template-columns:repeat(2,1fr)}}
