@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.45",
+  version: "VC 1.0.46",
   releasedAt: "18/11/2026",
   improvements: [
+    "Cadastro de Contas Bancárias simplificado para dados próprios da instituição e da conta",
+    "Campos reorganizados em nome do banco, agência, conta, código bancário e saldo atual",
+    "Colunas operacionais ocultadas do formulário bancário sem perda dos registros existentes",
+    "Saldo atual formatado automaticamente em reais na listagem",
     "Grids reorganizados com larguras proporcionais ao conteúdo de cada coluna",
     "Textos longos quebrados em múltiplas linhas sem sobreposição entre células",
     "Primeira coluna fixa e rolagem horizontal sincronizada no topo do grid",
