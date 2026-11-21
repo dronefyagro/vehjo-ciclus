@@ -1,7 +1,10 @@
 export const release = {
-  version: "VC 1.0.52",
-  releasedAt: "19/11/2026",
+  version: "VC 1.0.53",
+  releasedAt: "21/11/2026",
   improvements: [
+    "Cabeçalhos das colunas restaurados em Contas a Pagar, Contas a Receber e Fluxo de Caixa",
+    "Nomes das colunas mantidos visíveis e alinhados com os dados durante a rolagem horizontal",
+    "Barra de rolagem superior preservada sem encobrir o cabeçalho dos grids",
     "Nova aba Análise de Despesas no módulo Financeiro",
     "Dashboard alimentado automaticamente pelos lançamentos de Contas a Pagar",
     "Ranking das maiores despesas em ordem decrescente com acesso ao lançamento",

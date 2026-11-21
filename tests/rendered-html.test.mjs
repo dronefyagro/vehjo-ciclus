@@ -72,3 +72,11 @@ test("oferece análise automática de despesas com recorrência e Pareto", async
   assert.match(expenseAnalysis, /Hospedagem/);
   assert.match(expenseAnalysis, /Alimentação/);
 });
+
+test("mantém os nomes das colunas visíveis nos grids financeiros", async () => {
+  const [dashboard, styles] = await Promise.all([read("app/dashboard-client.tsx"), read("app/enhancements.css")]);
+  assert.match(dashboard, /visibleHeaders\.map\(\(header, index\) => <th/);
+  assert.match(styles, /\.data-grid-card \.table-scroll thead\{display:table-header-group!important;visibility:visible!important\}/);
+  assert.match(styles, /\.data-grid-card \.table-scroll th\{position:static/);
+  assert.match(styles, /\.data-grid-card \.table-scroll-top\{position:relative/);
+});
