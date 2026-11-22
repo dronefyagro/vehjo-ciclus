@@ -80,3 +80,25 @@ test("mantém os nomes das colunas visíveis nos grids financeiros", async () =>
   assert.match(styles, /\.data-grid-card \.table-scroll th\{position:static/);
   assert.match(styles, /\.data-grid-card \.table-scroll-top\{position:relative/);
 });
+
+test("implanta a fundação tributária sem fabricar cálculos oficiais", async () => {
+  const [dashboard, taxation, engine, registry] = await Promise.all([
+    read("app/dashboard-client.tsx"),
+    read("app/taxation.tsx"),
+    read("app/api/tax-engine/route.ts"),
+    read("app/lib/taxation.ts"),
+  ]);
+  assert.match(dashboard, /label: "Tributação"/);
+  assert.match(dashboard, /active === "Tributação" \? <Taxation/);
+  assert.match(taxation, /Painel Tributário/);
+  assert.match(taxation, /Configuração da Empresa/);
+  assert.match(taxation, /RBT12/);
+  assert.match(taxation, /Não disponível/);
+  assert.match(taxation, /Notas Fiscais/);
+  assert.match(engine, /operational: false/);
+  assert.match(engine, /status: "foundation"/);
+  assert.match(engine, /status: 503/);
+  assert.match(registry, /calculadora-rtc-regime-regular/);
+  assert.match(registry, /calculadora-rtc-simples-nacional/);
+  assert.match(registry, /calculadora-rtc-gerador-danfse/);
+});
