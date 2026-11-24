@@ -54,8 +54,10 @@ export async function verifyPlatformUser(username: string, password: string): Pr
   const recoveryHash = process.env.CICLUS_ADMIN_PASSWORD_SHA256?.trim().toLowerCase() || DEFAULT_PASSWORD_HASH;
   const recoverySupplied = Buffer.from(sha256Hex(password), "hex");
   const recoveryExpected = Buffer.from(recoveryHash, "hex");
-  if (username.trim().toLocaleLowerCase("pt-BR") === bootstrapUsername.toLocaleLowerCase("pt-BR") && recoverySupplied.length === recoveryExpected.length && timingSafeEqual(recoverySupplied, recoveryExpected)) {
-    return { username: bootstrapUsername, name: "Dronefy Agro", role: "admin" };
+  const requestedUsername = username.trim().toLocaleLowerCase("pt-BR");
+  const recoveryUsernames = new Set([DEFAULT_USER, bootstrapUsername].map((value) => value.toLocaleLowerCase("pt-BR")));
+  if (recoveryUsernames.has(requestedUsername) && recoverySupplied.length === recoveryExpected.length && timingSafeEqual(recoverySupplied, recoveryExpected)) {
+    return { username: requestedUsername === DEFAULT_USER ? DEFAULT_USER : bootstrapUsername, name: "Dronefy Agro", role: "admin" };
   }
   const user = (await getPlatformUsers()).find((item) => item.username.toLocaleLowerCase("pt-BR") === username.trim().toLocaleLowerCase("pt-BR"));
   if (!user?.active || !user.passwordHash) return null;

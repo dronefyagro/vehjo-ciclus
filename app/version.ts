@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.57",
+  version: "VC 1.0.58",
   releasedAt: "24/11/2026",
   improvements: [
+    "Recuperação administrativa vinculada ao usuário principal dronefyagro",
+    "Compatibilidade preservada com nomes administrativos legados da hospedagem",
     "Conta administrativa principal protegida por credencial de recuperação independente",
     "Registros antigos ou inativos não bloqueiam a recuperação do administrador",
     "Credencial administrativa inicial ativada e validada no ambiente publicado",
