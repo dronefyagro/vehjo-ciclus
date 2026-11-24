@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAccessToken, SHEET_NAMES } from "../../lib/google-sheets";
 import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "../../lib/invoice-analysis";
 import { normalizeCells, normalizeRows, rejectUnsafeMutation, validSheetRowIndex } from "../../lib/api-guard";
+import { getRequestSession } from "../../lib/auth";
+import { canAccessSheet } from "../../lib/access-control";
 
 const ACTIONS = ["create", "update", "delete", "bulk-create", "learn-bank-rules"] as const;
 type RecordAction = typeof ACTIONS[number];
@@ -103,6 +105,10 @@ export async function POST(request: Request) {
     const rules = Array.isArray(payload.rules) ? payload.rules : [];
     if (!action) return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     if (!SHEET_NAMES.includes(sheet as typeof SHEET_NAMES[number])) return NextResponse.json({ error: "Módulo inválido." }, { status: 400 });
+    const session = getRequestSession(request);
+    if (!session) return NextResponse.json({ error: "Sessão expirada." }, { status: 401 });
+    const canLearnInternalRule = action === "learn-bank-rules" && session.role === "supervisor" && sheet === "Configurações";
+    if (!canAccessSheet(session.role, sheet) && !canLearnInternalRule) return NextResponse.json({ error: "Seu perfil não possui permissão para alterar este módulo." }, { status: 403 });
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
     const token = await getAccessToken();
@@ -128,12 +134,19 @@ export async function POST(request: Request) {
     if (action === "bulk-create") {
       if (!rows) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos válidos." }, { status: 400 });
       const financialSheet = sheet === "Contas a Receber" || sheet === "Contas a Pagar";
-      const codeRange = encodeURIComponent(`'${sheet}'!A2:${financialSheet ? "Q" : "A"}`);
+      const invoiceSheet = sheet === "Notas Fiscais";
+      const codeRange = encodeURIComponent(`'${sheet}'!A2:${financialSheet ? "Q" : invoiceSheet ? "Z" : "A"}`);
       const codeResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${codeRange}`, { headers });
       if (!codeResponse.ok) throw new Error("Não foi possível conferir os códigos e duplicidades existentes.");
       const codeData = await codeResponse.json() as { values?: string[][] };
       const highestCode = (codeData.values ?? []).reduce((highest, row) => { const digits = String(row[0] ?? "").match(/\d+/g)?.join(""); return Math.max(highest, digits ? Number(digits) : 0); }, 0);
       const existingKeys = financialSheet ? new Set((codeData.values ?? []).map((row) => normalizedFinancialKey(row.map(String)))) : new Set<string>();
+      const invoiceKey = (row: string[]) => {
+        const raw = String(row[7] || row[1] || "").trim().toLocaleLowerCase("pt-BR");
+        const digits = raw.replace(/\D/g, "");
+        return digits.length === 44 ? digits : raw.normalize("NFD").replace(/[\u0300-\u036f\s.-]/g, "");
+      };
+      const existingInvoiceKeys = invoiceSheet ? new Set((codeData.values ?? []).map((row) => invoiceKey(row.map(String))).filter(Boolean)) : new Set<string>();
       const submittedRows = rows.map((source, index) => {
         const submitted = [...source];
         submitted[0] = String(highestCode + index + 1);
@@ -141,10 +154,16 @@ export async function POST(request: Request) {
         completeFinancialPeriod(sheet, submitted);
         return submitted;
       }).filter((row) => {
-        if (!financialSheet) return true;
-        const key = normalizedFinancialKey(row);
-        if (existingKeys.has(key)) { skipped += 1; return false; }
-        existingKeys.add(key);
+        if (financialSheet) {
+          const key = normalizedFinancialKey(row);
+          if (existingKeys.has(key)) { skipped += 1; return false; }
+          existingKeys.add(key);
+        }
+        if (invoiceSheet) {
+          const key = invoiceKey(row);
+          if (key && existingInvoiceKeys.has(key)) { skipped += 1; return false; }
+          if (key) existingInvoiceKeys.add(key);
+        }
         return true;
       });
       imported = submittedRows.length;

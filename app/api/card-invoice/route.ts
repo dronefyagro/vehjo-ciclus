@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import { rejectUnsafeMutation } from "../../lib/api-guard";
+import { getRequestSession } from "../../lib/auth";
+import { canAccessModule } from "../../lib/access-control";
+import { loadPdfReader } from "../../lib/pdf-reader";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type PdfTextItem = { str?: string; hasEOL?: boolean };
-
-const loadPdfReader = async () => {
-  const { default: DOMMatrix } = await import("@thednp/dommatrix");
-  const browserGlobals = globalThis as Record<string, unknown>;
-  browserGlobals.DOMMatrix ??= DOMMatrix;
-  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  return import("pdfjs-dist/legacy/build/pdf.mjs");
-};
 
 const normalizeDate = (value: string, referenceYear: number) => {
   const parts = value.split("/").map(Number);
@@ -51,6 +46,8 @@ const cleanMerchant = (value: string) => value
 export async function POST(request: Request) {
   const rejected = rejectUnsafeMutation(request);
   if (rejected) return rejected;
+  const session = getRequestSession(request);
+  if (!session || !canAccessModule(session.role, "Análise de Faturas")) return NextResponse.json({ error: "Seu perfil não possui acesso à análise de faturas." }, { status: 403 });
   try {
     const form = await request.formData();
     const file = form.get("file");

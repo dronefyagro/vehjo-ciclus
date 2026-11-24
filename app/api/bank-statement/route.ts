@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import { identifyBankAccount } from "../../lib/bank-identification";
 import { rejectUnsafeMutation } from "../../lib/api-guard";
+import { getRequestSession } from "../../lib/auth";
+import { canAccessModule } from "../../lib/access-control";
+import { loadPdfReader } from "../../lib/pdf-reader";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const loadPdfReader = async () => {
-  const { default: DOMMatrix } = await import("@thednp/dommatrix");
-  const browserGlobals = globalThis as Record<string, unknown>;
-  browserGlobals.DOMMatrix ??= DOMMatrix;
-  await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  return import("pdfjs-dist/legacy/build/pdf.mjs");
-};
 
 type Movement = "credit" | "debit";
 type Confidence = "Alta" | "Média" | "Baixa";
@@ -183,6 +178,8 @@ const classify = (transaction: RawTransaction, accountLabel: string, companyDocu
 export async function POST(request: Request) {
   const rejected = rejectUnsafeMutation(request, 16 * 1024 * 1024);
   if (rejected) return rejected;
+  const session = getRequestSession(request);
+  if (!session || !canAccessModule(session.role, "Importar Extrato")) return NextResponse.json({ error: "Seu perfil não possui acesso à importação de extratos." }, { status: 403 });
   try {
     const form = await request.formData(); const file = form.get("file"); if (!(file instanceof File)) return NextResponse.json({ error: "Selecione um extrato bancário." }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "O extrato deve ter no máximo 15 MB." }, { status: 400 });
