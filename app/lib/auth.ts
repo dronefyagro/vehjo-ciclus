@@ -6,14 +6,18 @@ import type { SessionUser, UserRole } from "./access-control";
 
 const SESSION_COOKIE = "ciclus_session";
 const SESSION_SECONDS = 8 * 60 * 60;
-const DEFAULT_PASSWORD_HASH = "adccdc4cf1ad2bb6af52d82f9f96465a0c84aa87a672f920a9f5d1411c4f3bfa";
+const DEVELOPMENT_SESSION_SECRET = "ciclus-development-session-only";
 
 type SessionPayload = SessionUser & { expiresAt: number };
 
-const sessionSecret = () => process.env.CICLUS_SESSION_SECRET
-  || process.env.GOOGLE_PRIVATE_KEY
-  || process.env.CICLUS_ACCESS_PASSWORD_SHA256
-  || DEFAULT_PASSWORD_HASH;
+const sessionSecret = () => {
+  const configured = process.env.CICLUS_SESSION_SECRET
+    || process.env.GOOGLE_PRIVATE_KEY
+    || process.env.CICLUS_ACCESS_PASSWORD_SHA256;
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") return DEVELOPMENT_SESSION_SECRET;
+  throw new Error("A chave de sessão da plataforma não está configurada.");
+};
 
 const encode = (value: string) => Buffer.from(value, "utf8").toString("base64url");
 const decode = (value: string) => Buffer.from(value, "base64url").toString("utf8");

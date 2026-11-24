@@ -7,7 +7,11 @@ import { USER_RECORD_KIND, type SessionUser, type UserRole } from "./access-cont
 
 const scrypt = promisify(scryptCallback);
 const DEFAULT_USER = "dronefyagro";
-const DEFAULT_PASSWORD_HASH = "8a47133053dbf9cc9d646ce48c2b7ca922ed9e72bef5304bd43c1517a375fdd9";
+
+const configuredRecoveryHash = () => {
+  const hash = process.env.CICLUS_ADMIN_PASSWORD_SHA256?.trim().toLowerCase() ?? "";
+  return /^[a-f0-9]{64}$/.test(hash) ? hash : "";
+};
 
 export type StoredPlatformUser = SessionUser & {
   salt: string;
@@ -40,9 +44,10 @@ export async function getPlatformUsers(): Promise<StoredPlatformUser[]> {
     });
   }
   const bootstrapUsername = process.env.CICLUS_ACCESS_USER?.trim() || DEFAULT_USER;
-  if (!latest.has(bootstrapUsername.toLocaleLowerCase("pt-BR"))) {
+  const recoveryHash = configuredRecoveryHash();
+  if (recoveryHash && !latest.has(bootstrapUsername.toLocaleLowerCase("pt-BR"))) {
     latest.set(bootstrapUsername.toLocaleLowerCase("pt-BR"), {
-      username: bootstrapUsername, name: "Dronefy Agro", role: "admin", salt: "", passwordHash: process.env.CICLUS_ADMIN_PASSWORD_SHA256?.trim().toLowerCase() || DEFAULT_PASSWORD_HASH,
+      username: bootstrapUsername, name: "Dronefy Agro", role: "admin", salt: "", passwordHash: recoveryHash,
       active: true, createdAt: "Conta inicial", updatedAt: "", source: "bootstrap",
     });
   }
@@ -51,13 +56,15 @@ export async function getPlatformUsers(): Promise<StoredPlatformUser[]> {
 
 export async function verifyPlatformUser(username: string, password: string): Promise<SessionUser | null> {
   const bootstrapUsername = process.env.CICLUS_ACCESS_USER?.trim() || DEFAULT_USER;
-  const recoveryHash = process.env.CICLUS_ADMIN_PASSWORD_SHA256?.trim().toLowerCase() || DEFAULT_PASSWORD_HASH;
-  const recoverySupplied = Buffer.from(sha256Hex(password), "hex");
-  const recoveryExpected = Buffer.from(recoveryHash, "hex");
+  const recoveryHash = configuredRecoveryHash();
   const requestedUsername = username.trim().toLocaleLowerCase("pt-BR");
   const recoveryUsernames = new Set([DEFAULT_USER, bootstrapUsername].map((value) => value.toLocaleLowerCase("pt-BR")));
-  if (recoveryUsernames.has(requestedUsername) && recoverySupplied.length === recoveryExpected.length && timingSafeEqual(recoverySupplied, recoveryExpected)) {
-    return { username: requestedUsername === DEFAULT_USER ? DEFAULT_USER : bootstrapUsername, name: "Dronefy Agro", role: "admin" };
+  if (recoveryHash && recoveryUsernames.has(requestedUsername)) {
+    const recoverySupplied = Buffer.from(sha256Hex(password), "hex");
+    const recoveryExpected = Buffer.from(recoveryHash, "hex");
+    if (recoverySupplied.length === recoveryExpected.length && timingSafeEqual(recoverySupplied, recoveryExpected)) {
+      return { username: requestedUsername === DEFAULT_USER ? DEFAULT_USER : bootstrapUsername, name: "Dronefy Agro", role: "admin" };
+    }
   }
   const user = (await getPlatformUsers()).find((item) => item.username.toLocaleLowerCase("pt-BR") === username.trim().toLocaleLowerCase("pt-BR"));
   if (!user?.active || !user.passwordHash) return null;

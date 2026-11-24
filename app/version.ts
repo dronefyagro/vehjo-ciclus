@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.58",
+  version: "VC 1.0.59",
   releasedAt: "24/11/2026",
   improvements: [
+    "Acesso administrativo ativado na base privada de usuários",
+    "Credenciais e hashes removidos do código público da plataforma",
     "Recuperação administrativa vinculada ao usuário principal dronefyagro",
     "Compatibilidade preservada com nomes administrativos legados da hospedagem",
     "Conta administrativa principal protegida por credencial de recuperação independente",
