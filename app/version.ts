@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.62",
+  version: "VC 1.0.63",
   releasedAt: "24/11/2026",
   improvements: [
+    "Importador adaptado ao modelo nacional DANFSe v2.0",
+    "Reconhecimento validado com uma Nota Fiscal de Serviço real",
+    "Número da NFS-e, tomador, emissão, valor e chave nacional preenchidos automaticamente",
+    "Chaves nacionais de NFS-e com 50 dígitos protegidas contra duplicidade",
+    "Competência, CPF ou CNPJ, endereço, serviço e informações de ISSQN preservados nas observações",
     "Bloco introdutório removido da Visão Geral do Usuário padrão",
     "Indicadores reposicionados no topo para leitura imediata",
     "Acesso a Clientes, Fazendas e Contratos reativado para o Usuário padrão",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { parseFiscalPdfText } from "../app/lib/fiscal-invoice-parser.ts";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -116,7 +117,7 @@ test("permite cadastrar e administrar vários usuários com segurança", async (
 });
 
 test("importa notas fiscais em PDF e XML com conferência e deduplicação", async () => {
-  const [dashboard, importer, route, records] = await Promise.all([read("app/dashboard-client.tsx"), read("app/fiscal-invoice-importer.tsx"), read("app/api/fiscal-invoice/route.ts"), read("app/api/records/route.ts")]);
+  const [dashboard, importer, route, records, parser] = await Promise.all([read("app/dashboard-client.tsx"), read("app/fiscal-invoice-importer.tsx"), read("app/api/fiscal-invoice/route.ts"), read("app/api/records/route.ts"), read("app/lib/fiscal-invoice-parser.ts")]);
   assert.match(dashboard, /Importar PDF\/XML/);
   assert.match(importer, /accept="\.pdf,\.xml/);
   assert.match(importer, /Marcar todos/);
@@ -124,6 +125,21 @@ test("importa notas fiscais em PDF e XML com conferência e deduplicação", asy
   assert.match(route, /parseXml/);
   assert.match(route, /parsePdf/);
   assert.match(records, /existingInvoiceKeys/);
+  assert.match(parser, /DANFSe\\s\*v\?2\\\.0/);
+  assert.match(parser, /\\d\{50\}/);
+});
+
+test("reconhece todos os campos essenciais do DANFSe Nacional v2.0", () => {
+  const document = parseFiscalPdfText(`DANFSe v2.0 Documento Auxiliar da NFS-e CHAVE DE ACESSO DA NFS-e 31443002240206420000143000000000003026111548989665 NÚMERO DA NFS-e 30 COMPETÊNCIA DA NFS-e 09/11/2026 DATA E HORA DA EMISSÃO DA NFS-e 19/11/2026 16:11:00 PRESTADOR / FORNECEDOR CNPJ / CPF / NIF 40.206.420/0001-43 Nome / Nome Empresarial DRONEFY - PRESTACAO DE SERVICOS DRONES AGRICOLAS LTDA Município / Sigla UF Nanuque / MG Código IBGE / CEP 31.44300 / 39.860-000 TOMADOR / ADQUIRENTE CNPJ / CPF / NIF 305.558.416-34 Nome / Nome Empresarial AIRSON DE EUGENIO DE FREITAS Município / Sigla UF Nova Viçosa / BA Código IBGE / CEP 29.23001 / 45.920-000 Endereço ARRENDAMENTO FAZENDA NOVA AMÉRICA, 0, ZONA RURAL E-mail nvlcont@gmail.com DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e SERVIÇO PRESTADO Código de Tributação Nacional/Municipal 07.13.01 / - Descrição do Serviço SERVIÇO DE MONITORAMENTO DE PRAGAS AGRÍCOLAS TRIBUTAÇÃO MUNICIPAL (ISSQN) BC ISSQN R$ 567,08 Alíquota Aplicada 5,00 % Retenção do ISSQN Não Retido ISSQN Apurado R$ 28,35 VALOR TOTAL DA NFS-e VALOR DA OPERAÇÃO / SERVIÇO R$ 567,08 VALOR LÍQUIDO DA NFS-e R$ 567,08`, "nota-airson.pdf");
+  assert.equal(document.number, "30");
+  assert.equal(document.party, "AIRSON DE EUGENIO DE FREITAS");
+  assert.equal(document.date, "2026-11-19");
+  assert.equal(document.value, 567.08);
+  assert.equal(document.type, "Prestação de Serviço");
+  assert.equal(document.accessKey, "31443002240206420000143000000000003026111548989665");
+  assert.match(document.notes, /CPF\/CNPJ do tomador: 305\.558\.416-34/);
+  assert.match(document.notes, /Serviço: SERVIÇO DE MONITORAMENTO DE PRAGAS AGRÍCOLAS/);
+  assert.match(document.notes, /ISSQN apurado: R\$\s?28,35/);
 });
 
 test("oferece análise automática de despesas com recorrência e Pareto", async () => {

@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       const invoiceKey = (row: string[]) => {
         const raw = String(row[7] || row[1] || "").trim().toLocaleLowerCase("pt-BR");
         const digits = raw.replace(/\D/g, "");
-        return digits.length === 44 ? digits : raw.normalize("NFD").replace(/[\u0300-\u036f\s.-]/g, "");
+        return digits.length === 44 || digits.length === 50 ? digits : raw.normalize("NFD").replace(/[\u0300-\u036f\s.-]/g, "");
       };
       const existingInvoiceKeys = invoiceSheet ? new Set((codeData.values ?? []).map((row) => invoiceKey(row.map(String))).filter(Boolean)) : new Set<string>();
       const submittedRows = rows.map((source, index) => {
