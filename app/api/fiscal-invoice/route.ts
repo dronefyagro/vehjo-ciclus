@@ -43,6 +43,7 @@ async function parsePdf(file: File): Promise<FiscalDocument[]> {
       if (item.hasEOL) text += "\n";
     }
   }
+  if (!text.trim()) throw new Error("PDF_IMAGE_ONLY");
   return [parseFiscalPdfText(text, file.name)];
 }
 
@@ -54,13 +55,15 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const file = form.get("file");
+    const ocrText = String(form.get("ocrText") ?? "").trim();
     if (!(file instanceof File)) return NextResponse.json({ error: "Selecione um arquivo PDF ou XML." }, { status: 400 });
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: "O arquivo deve ter no máximo 10 MB." }, { status: 413 });
     const extension = file.name.toLocaleLowerCase("pt-BR").split(".").pop();
-    const documents = extension === "xml" || /xml/i.test(file.type) ? parseXml(await file.text(), file.name) : extension === "pdf" || file.type === "application/pdf" ? await parsePdf(file) : [];
+    const documents = extension === "xml" || /xml/i.test(file.type) ? parseXml(await file.text(), file.name) : extension === "pdf" || file.type === "application/pdf" ? ocrText ? [parseFiscalPdfText(ocrText, file.name)] : await parsePdf(file) : [];
     if (!documents.length) return NextResponse.json({ error: "Nenhuma nota fiscal reconhecida neste arquivo." }, { status: 422 });
     return NextResponse.json({ fileName: file.name, documents });
   } catch (error) {
+    if (error instanceof Error && error.message === "PDF_IMAGE_ONLY") return NextResponse.json({ error: "Esta nota não possui texto pesquisável. Iniciando leitura óptica no navegador.", code: "OCR_REQUIRED" }, { status: 422 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível interpretar o documento fiscal." }, { status: 500 });
   }
 }

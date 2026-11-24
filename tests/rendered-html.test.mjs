@@ -117,7 +117,7 @@ test("permite cadastrar e administrar vários usuários com segurança", async (
 });
 
 test("importa notas fiscais em PDF e XML com conferência e deduplicação", async () => {
-  const [dashboard, importer, route, records, parser] = await Promise.all([read("app/dashboard-client.tsx"), read("app/fiscal-invoice-importer.tsx"), read("app/api/fiscal-invoice/route.ts"), read("app/api/records/route.ts"), read("app/lib/fiscal-invoice-parser.ts")]);
+  const [dashboard, importer, route, records, parser, ocr] = await Promise.all([read("app/dashboard-client.tsx"), read("app/fiscal-invoice-importer.tsx"), read("app/api/fiscal-invoice/route.ts"), read("app/api/records/route.ts"), read("app/lib/fiscal-invoice-parser.ts"), read("app/lib/client-pdf-ocr.ts")]);
   assert.match(dashboard, /Importar PDF\/XML/);
   assert.match(importer, /accept="\.pdf,\.xml/);
   assert.match(importer, /Marcar todos/);
@@ -127,6 +127,9 @@ test("importa notas fiscais em PDF e XML com conferência e deduplicação", asy
   assert.match(records, /existingInvoiceKeys/);
   assert.match(parser, /DANFSe\\s\*v\?2\\\.0/);
   assert.match(parser, /\\d\{50\}/);
+  assert.match(route, /OCR_REQUIRED/);
+  assert.match(importer, /recognizeImagePdf/);
+  assert.match(ocr, /createWorker\("por"\)/);
 });
 
 test("reconhece todos os campos essenciais do DANFSe Nacional v2.0", () => {
@@ -140,6 +143,17 @@ test("reconhece todos os campos essenciais do DANFSe Nacional v2.0", () => {
   assert.match(document.notes, /CPF\/CNPJ do tomador: 305\.558\.416-34/);
   assert.match(document.notes, /Serviço: SERVIÇO DE MONITORAMENTO DE PRAGAS AGRÍCOLAS/);
   assert.match(document.notes, /ISSQN apurado: R\$\s?28,35/);
+});
+
+test("reconhece DANFSe convertida em imagem pela leitura óptica", () => {
+  const document = parseFiscalPdfText(`DANFSe v2.0 CHAVE DE ACESSO DA NFS-e 31443002240206420000143000000000003626116266727097 NÚMERO DA NFS-e COMPETÊNCIA DA NFS-e DATA E HORA DA EMISSÃO DA NFS-e AAA 36 23/11/2026 23/11/2026 16:12:37 PRESTADOR / FORNECEDOR CNPJ TCPFTNIF Indicador Municipal 40.206.420/0001-43 Nome / Nome Empresarial Município / Sigla UF Código IBGE | CEP DRONEFY - PRESTACAO DE SERVICOS DRONES AGRICOLAS LTDA Nanuque / MG 31.44300 / 39.860-000 TOMADOR / ADQUIRENTE CNPJ TCPFINIF Indicador Municipal 087.887.047-42 Nome / Nome Empresarial Município / Sigla UF Código IBGE | CEP MILENA SILVA ROCHA Nova Viçosa / BA 29.23001 / 45.920-000 Endereço E-mail ARRENDAMENTO FAZENDA VIÇOSA E BOA VISTA, 0, ZONA RURAL - DESTINATÁRIO DA OPERAÇÃO NÃO IDENTIFICADO NA NFS-e SERVIÇO PRESTADO Descrição do Serviço SERVIÇO DE MONITORAMENTO DE PRAGAS AGRÍCOLAS TRIBUTAÇÃO MUNICIPAL VALOR TOTAL DA NFS-e VALOR DA OPERAÇÃO / SERVIÇO Desconto Incondicionado Desconto Condicionado R$378,84 - -`, "nota-milena.pdf");
+  assert.equal(document.number, "36");
+  assert.equal(document.party, "MILENA SILVA ROCHA");
+  assert.equal(document.date, "2026-11-23");
+  assert.equal(document.value, 378.84);
+  assert.equal(document.accessKey, "31443002240206420000143000000000003626116266727097");
+  assert.match(document.notes, /CPF\/CNPJ do tomador: 087\.887\.047-42/);
+  assert.match(document.notes, /Município do tomador: Nova Viçosa \/ BA/);
 });
 
 test("oferece análise automática de despesas com recorrência e Pareto", async () => {

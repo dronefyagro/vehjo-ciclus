@@ -31,11 +31,17 @@ const section = (value: string, start: RegExp, end: RegExp) => {
   return remainder.slice(0, endMatch?.index ?? remainder.length).trim();
 };
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const ocrIdentity = (value: string) => {
+  const row = first(value, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+\d{2}\.\d{5}\s*\/\s*[\d.-]+)/i]);
+  const match = row.match(/^(.+?)\s+((?:\p{Lu}\p{Ll}+\s+)*\p{Lu}\p{Ll}+)\s*\/\s*([A-Z]{2})$/u);
+  return match ? { name: cleanText(match[1]), location: `${cleanText(match[2])} / ${match[3]}` } : { name: "", location: "" };
+};
 
 export function parseFiscalPdfText(text: string, fileName: string): FiscalDocument {
   const compact = cleanText(text);
   const nationalNfse = /DANFSe\s*v?2\.0|CHAVE DE ACESSO DA NFS-e|N[ÚU]MERO DA NFS-e/i.test(compact);
   const number = first(compact, [
+    /N[ÚU]MERO DA NFS-e\s+COMPET[EÊ]NCIA DA NFS-e\s+DATA(?:\s+E\s+HORA)?\s+DA\s+EMISS[AÃ]O\s+DA\s+NFS-e[^\d]{0,30}(\d{1,15})\s+\d{2}\/\d{2}\/\d{4}/i,
     /N[ÚU]MERO DA NFS-e\s*[:#-]?\s*(\d{1,15})(?!\d)/i,
     /(?:n[uú]mero(?:\s+da)?\s+(?:nf|nfs-e|nota)|nota\s+fiscal(?:\s+n[º°o])?|nfs-e\s*n[º°o]?)\s*[:#-]?\s*(\d{1,15})/i,
   ]);
@@ -51,29 +57,40 @@ export function parseFiscalPdfText(text: string, fileName: string): FiscalDocume
   ]));
   const competence = first(compact, [/COMPET[EÊ]NCIA DA NFS-e\s*(\d{2}\/\d{2}\/\d{4})/i]);
   const grossValue = money(first(compact, [
+    /VALOR TOTAL DA NFS-e\s+VALOR DA OPERA[CÇ][AÃ]O\s*\/\s*SERVI[CÇ]O\s+Desconto Incondicionado\s+Desconto Condicionado\s*(?:R\$\s*)?([\d.]+,\d{2})/i,
     /VALOR DA OPERA[CÇ][AÃ]O\s*\/\s*SERVI[CÇ]O\s*(?:R\$\s*)?([\d.]+,\d{2})/i,
     /(?:valor\s+total\s+da\s+nota|valor\s+da\s+nota|valor\s+dos\s+servi[cç]os)[^\d]{0,25}(?:R\$\s*)?([\d.]+,\d{2})/i,
   ]));
-  const netValue = money(first(compact, [/VALOR L[IÍ]QUIDO DA NFS-e\s*(?:R\$\s*)?([\d.]+,\d{2})/i]));
+  const netValue = money(first(compact, [
+    /Total das Reten[cç][oõ]es[\s\S]{0,150}?VALOR L[IÍ]QUIDO DA NFS-e[\s\S]{0,150}?\s-\s+(?:R\$\s*)?([\d.]+,\d{2})/i,
+    /Total das Reten[cç][oõ]es[^R]{0,80}VALOR L[IÍ]QUIDO DA NFS-e[^R]{0,100}(?:R\$\s*)?([\d.]+,\d{2})/i,
+    /VALOR L[IÍ]QUIDO DA NFS-e\s*(?:R\$\s*)?([\d.]+,\d{2})/i,
+  ]));
 
   const partySection = section(compact, /TOMADOR\s*\/\s*ADQUIRENTE/i, /DESTINAT[AÁ]RIO DA OPERA[CÇ][AÃ]O|INTERMEDI[AÁ]RIO DA OPERA[CÇ][AÃ]O|SERVI[CÇ]O PRESTADO/i);
   const providerSection = section(compact, /PRESTADOR\s*\/\s*FORNECEDOR/i, /TOMADOR\s*\/\s*ADQUIRENTE/i);
   const serviceSection = section(compact, /SERVI[CÇ]O PRESTADO/i, /TRIBUTA[CÇ][AÃ]O MUNICIPAL/i);
-  const party = cleanText(first(partySection || compact, [
+  const partyIdentity = ocrIdentity(partySection);
+  const providerIdentity = ocrIdentity(providerSection);
+  const party = partyIdentity.name || cleanText(first(partySection || compact, [
+    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i,
     /Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i,
     /(?:destinat[aá]rio(?:\s*\/\s*remetente)?|tomador(?:\s+de\s+servi[cç]os)?)[\s:.-]{0,20}(?:raz[aã]o\s+social|nome)?[\s:.-]*([A-ZÀ-Ú0-9][A-ZÀ-Ú0-9 .&'-]{3,100}?)(?=\s+(?:CNPJ|CPF|ENDERE[CÇ]O|INSCRI[CÇ][AÃ]O|DATA))/i,
   ]));
-  const partyDocument = first(partySection, [/CNPJ\s*\/\s*CPF\s*\/\s*NIF\s+([\d./-]{11,20})/i]);
-  const partyLocation = cleanText(first(partySection, [/Munic[ií]pio\s*\/\s*Sigla UF\s+(.+?)(?=\s+C[oó]digo IBGE\s*\/\s*CEP)/i]));
-  const partyAddress = cleanText(first(partySection, [/Endere[cç]o\s+(.+?)(?=\s+E-mail)/i]));
+  const partyDocument = first(partySection, [/CNPJ\s*\/\s*CPF\s*\/\s*NIF\s+([\d./-]{11,20})/i, /((?:\d{3}\.\d{3}\.\d{3}-\d{2})|(?:\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}))/]);
+  const partyLocation = partyIdentity.location || cleanText(first(partySection, [
+    /Munic[ií]pio\s*\/\s*Sigla UF\s+(.+?)(?=\s+C[oó]digo IBGE\s*\/\s*CEP)/i,
+    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+.+?\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2})\s+\d{2}\.\d{5}/i,
+  ]));
+  const partyAddress = cleanText(first(partySection, [/Endere[cç]o\s+(.+?)(?=\s+E-mail)/i, /Endere[cç]o\s+E-mail\s+(.+?)(?=$)/i])).replace(/\s+-$/, "");
   const partyEmail = first(partySection, [/E-mail\s+([^\s]+@[^\s]+)/i]);
-  const provider = cleanText(first(providerSection, [/Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i]));
-  const serviceDescription = cleanText(first(serviceSection, [/Descri[cç][aã]o do Servi[cç]o\s+(.+?)(?=$)/i]));
-  const serviceCode = first(serviceSection, [/C[oó]digo de Tributa[cç][aã]o Nacional\/Municipal\s+([\d.]+(?:\s*\/\s*[^\s]+)?)/i]);
+  const provider = providerIdentity.name || cleanText(first(providerSection, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i, /Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i]));
+  const serviceDescription = cleanText(first(serviceSection, [/Descri[cç][aã]o do Servi[cç]o\s+(.+?)(?=$)/i])).replace(/^[.\-:\s]+/, "");
+  const serviceCode = first(serviceSection, [/[CT][oó]digo de Tributa[cç][aã]o Nacional\/Municipal(?:\s+[CT][oó]digo da NBS\s+[CT][oó]cal da Presta[cç][aã]o[^\d]+)?\s+([\d.]+(?:\s*\/\s*[^\s]+)?)/i]);
   const taxBase = money(first(compact, [/BC ISSQN\s*(?:R\$\s*)?([\d.]+,\d{2})/i]));
   const taxRate = first(compact, [/Al[ií]quota Aplicada\s*([\d.,]+\s*%)/i]);
   const taxValue = money(first(compact, [/ISSQN Apurado\s*(?:R\$\s*)?([\d.]+,\d{2})/i]));
-  const taxWithholding = first(compact, [/Reten[cç][aã]o do ISSQN\s+(.+?)(?=\s+ISSQN Apurado|\s+TRIBUTA[CÇ][AÃ]O FEDERAL)/i]);
+  const taxWithholding = first(compact, [/Reten[cç][aã]o do ISSQN\s+ISSQN Apurado\s+(?:-\s+){2}(.+?)\s+-/i, /Reten[cç][aã]o do ISSQN\s+(.+?)(?=\s+ISSQN Apurado|\s+TRIBUTA[CÇ][AÃ]O FEDERAL)/i]);
 
   if (!number && !accessKey) throw new Error("Não foi possível identificar o número ou a chave da nota neste PDF.");
   const details = [

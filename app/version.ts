@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.63",
+  version: "VC 1.0.64",
   releasedAt: "24/11/2026",
   improvements: [
+    "Leitura óptica automática para Notas Fiscais sem texto pesquisável",
+    "PDFs com letras convertidas em desenhos reconhecidos diretamente no navegador",
+    "Nota da Milena validada com número, cliente, emissão, valor e chave de acesso",
+    "Relatórios financeiros continuam bloqueados no importador de Notas Fiscais",
+    "Processamento óptico executado somente quando a leitura normal não encontra texto",
     "Importador adaptado ao modelo nacional DANFSe v2.0",
     "Reconhecimento validado com uma Nota Fiscal de Serviço real",
     "Número da NFS-e, tomador, emissão, valor e chave nacional preenchidos automaticamente",

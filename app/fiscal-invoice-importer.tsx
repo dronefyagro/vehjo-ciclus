@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { recognizeImagePdf } from "./lib/client-pdf-ocr";
 
 type FiscalDocument = { id: string; number: string; party: string; date: string; value: number; type: string; accessKey: string; notes: string; selected: boolean };
 type Props = { headers: string[]; onClose: () => void; onImported: (rows: string[][]) => void };
@@ -38,8 +39,18 @@ export default function FiscalInvoiceImporter({ headers, onClose, onImported }: 
     const errors: string[] = [];
     for (const file of Array.from(files)) {
       const form = new FormData(); form.set("file", file);
-      const response = await fetch("/api/fiscal-invoice", { method: "POST", body: form });
-      const result = await response.json() as { documents?: Omit<FiscalDocument, "selected">[]; error?: string };
+      let response = await fetch("/api/fiscal-invoice", { method: "POST", body: form });
+      let result = await response.json() as { documents?: Omit<FiscalDocument, "selected">[]; error?: string; code?: string };
+      if (!response.ok && result.code === "OCR_REQUIRED" && (file.type === "application/pdf" || /\.pdf$/i.test(file.name))) {
+        try {
+          const ocrText = await recognizeImagePdf(file);
+          const retry = new FormData(); retry.set("file", file); retry.set("ocrText", ocrText);
+          response = await fetch("/api/fiscal-invoice", { method: "POST", body: retry });
+          result = await response.json() as { documents?: Omit<FiscalDocument, "selected">[]; error?: string; code?: string };
+        } catch (reason) {
+          result = { error: reason instanceof Error ? reason.message : "Falha na leitura óptica da nota." };
+        }
+      }
       if (response.ok) found.push(...(result.documents ?? []).map((document) => ({ ...document, selected: true })));
       else errors.push(`${file.name}: ${result.error ?? "falha na leitura"}`);
     }
