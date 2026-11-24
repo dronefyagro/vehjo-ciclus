@@ -7,7 +7,7 @@ import { USER_RECORD_KIND, type SessionUser, type UserRole } from "./access-cont
 
 const scrypt = promisify(scryptCallback);
 const DEFAULT_USER = "dronefyagro";
-const DEFAULT_PASSWORD_HASH = "adccdc4cf1ad2bb6af52d82f9f96465a0c84aa87a672f920a9f5d1411c4f3bfa";
+const DEFAULT_PASSWORD_HASH = "8a47133053dbf9cc9d646ce48c2b7ca922ed9e72bef5304bd43c1517a375fdd9";
 
 export type StoredPlatformUser = SessionUser & {
   salt: string;
@@ -42,7 +42,7 @@ export async function getPlatformUsers(): Promise<StoredPlatformUser[]> {
   const bootstrapUsername = process.env.CICLUS_ACCESS_USER?.trim() || DEFAULT_USER;
   if (!latest.has(bootstrapUsername.toLocaleLowerCase("pt-BR"))) {
     latest.set(bootstrapUsername.toLocaleLowerCase("pt-BR"), {
-      username: bootstrapUsername, name: "Dronefy Agro", role: "admin", salt: "", passwordHash: process.env.CICLUS_ACCESS_PASSWORD_SHA256?.trim().toLowerCase() || DEFAULT_PASSWORD_HASH,
+      username: bootstrapUsername, name: "Dronefy Agro", role: "admin", salt: "", passwordHash: process.env.CICLUS_ADMIN_PASSWORD_SHA256?.trim().toLowerCase() || DEFAULT_PASSWORD_HASH,
       active: true, createdAt: "Conta inicial", updatedAt: "", source: "bootstrap",
     });
   }

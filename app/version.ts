@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.55",
+  version: "VC 1.0.56",
   releasedAt: "24/11/2026",
   improvements: [
+    "Credencial administrativa inicial ativada e validada no ambiente publicado",
+    "Administrador autorizado a redefinir acessos e senhas de usuários",
     "Nova tela de login com sessão segura e encerramento de acesso",
     "Perfis Administrador, Supervisor e Usuário padrão com permissões distintas",
     "Administrador com acesso total e gestão centralizada de usuários",
