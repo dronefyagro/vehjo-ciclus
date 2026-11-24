@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.61",
+  version: "VC 1.0.62",
   releasedAt: "24/11/2026",
   improvements: [
+    "Bloco introdutório removido da Visão Geral do Usuário padrão",
+    "Indicadores reposicionados no topo para leitura imediata",
+    "Acesso a Clientes, Fazendas e Contratos reativado para o Usuário padrão",
+    "Permissões de consulta e alteração de Operações aplicadas no servidor",
     "Visão Geral exclusiva e simplificada para o perfil Usuário padrão",
     "Valores mensais de Contas a Receber e Contas a Pagar calculados automaticamente",
     "Indicadores de contratos a vencer e contratos vencidos sem liberar o módulo Operações",

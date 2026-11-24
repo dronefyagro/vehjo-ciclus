@@ -68,9 +68,12 @@ test("aplica os perfis de acesso no menu, nos dados e nas APIs", async () => {
   assert.match(access, /SUPERVISOR_BLOCKED = new Set\(\["Configurações", "Usuários e Acessos"\]\)/);
   assert.match(access, /STANDARD_MODULES/);
   assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Visão geral"/);
+  assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Clientes"/);
+  assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Fazendas"/);
+  assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Contratos"/);
   assert.match(access, /"Contas a Receber"/);
   assert.match(access, /"Notas Fiscais"/);
-  assert.doesNotMatch(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Clientes"|"Relatórios Financeiro"/);
+  assert.doesNotMatch(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Relatórios Financeiro"/);
   assert.match(dashboard, /visibleNav/);
   assert.match(dashboard, /defaultModuleForRole/);
   assert.match(home, /canAccessSheet/);
@@ -78,11 +81,12 @@ test("aplica os perfis de acesso no menu, nos dados e nas APIs", async () => {
 });
 
 test("entrega ao usuário padrão somente a visão geral consolidada", async () => {
-  const [access, home, dashboard, summary] = await Promise.all([
+  const [access, home, dashboard, summary, styles] = await Promise.all([
     read("app/lib/access-control.ts"),
     read("app/page.tsx"),
     read("app/dashboard-client.tsx"),
     read("app/lib/standard-dashboard.ts"),
+    read("app/enhancements.css"),
   ]);
   assert.match(access, /defaultModuleForRole[\s\S]*user: "Visão geral"/);
   assert.match(home, /session\.role === "user" \? buildStandardDashboardSummary\(data\) : null/);
@@ -93,8 +97,11 @@ test("entrega ao usuário padrão somente a visão geral consolidada", async () 
   assert.match(dashboard, /Contratos a vencer/);
   assert.match(dashboard, /Total de clientes/);
   assert.match(dashboard, /Situação do estoque/);
+  assert.doesNotMatch(dashboard, /VISÃO GERAL DO USUÁRIO|Resumo operacional|Indicadores essenciais da competência atual|Perfil protegido/);
   assert.match(summary, /contractsExpiring/);
   assert.match(summary, /stockSituation/);
+  assert.match(styles, /\.standard-dashboard\{padding-top:18px\}/);
+  assert.match(styles, /\.standard-overview-card \.metric-icon,.standard-stock-card \.metric-icon\{position:static\}/);
 });
 
 test("permite cadastrar e administrar vários usuários com segurança", async () => {

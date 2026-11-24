@@ -137,7 +137,6 @@ export default function DashboardClient({ data, session, standardDashboard }: { 
 
 function StandardDashboard({ summary, onNavigate }: { summary: StandardDashboardSummary; onNavigate: (module: string, query?: string) => void }) {
   return <div className="dashboard standard-dashboard">
-    <div className="dashboard-hero standard-dashboard-hero"><div><span>VISÃO GERAL DO USUÁRIO</span><h2>Resumo operacional</h2><p>Indicadores essenciais da competência atual.</p></div><div className="hero-status"><Icon name="shield"/><span>Perfil protegido</span><strong>Usuário padrão</strong></div></div>
     <div className="section-heading"><div><span>FINANCEIRO</span><h2>Contas do mês atual</h2></div><span className="secure-status">{summary.monthLabel}</span></div>
     <div className="standard-overview-grid financial">
       <button className="standard-overview-card dashboard-link" onClick={() => onNavigate("Contas a Receber")}><span className="metric-icon green"><Icon name="receive"/></span><small>Contas a receber no mês</small><strong>{brl(summary.receivableCurrentMonth)}</strong><em>Abrir Contas a Receber →</em></button>
@@ -447,7 +446,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><Image src="/ciclus-symbol.svg" alt="Ciclus" width={72} height={72}/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.62</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><Image src="/ciclus-symbol.svg" alt="Ciclus" width={72} height={72}/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.63</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;

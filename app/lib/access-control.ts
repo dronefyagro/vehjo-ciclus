@@ -14,6 +14,9 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 const STANDARD_MODULES = new Set([
   "Visão geral",
+  "Clientes",
+  "Fazendas",
+  "Contratos",
   "Contas a Receber",
   "Contas a Pagar",
   "Fornecedores",
