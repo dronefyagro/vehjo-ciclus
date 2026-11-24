@@ -76,6 +76,17 @@ test("aplica os perfis de acesso no menu, nos dados e nas APIs", async () => {
   assert.match(records, /canAccessSheet\(session\.role, sheet\)/);
 });
 
+test("permite cadastrar e administrar vários usuários com segurança", async () => {
+  const [screen, route, users] = await Promise.all([read("app/user-access-management.tsx"), read("app/api/admin/users/route.ts"), read("app/lib/platform-users.ts")]);
+  assert.match(screen, /Salvar e cadastrar outro/);
+  assert.match(screen, /Usuários padrão/);
+  assert.match(screen, /passwordConfirmation/);
+  assert.match(route, /action === "update"/);
+  assert.match(route, /status: 409/);
+  assert.match(route, /pelo menos um administrador ativo/);
+  assert.match(users, /input\.existing\?\.source === "sheets"/);
+});
+
 test("importa notas fiscais em PDF e XML com conferência e deduplicação", async () => {
   const [dashboard, importer, route, records] = await Promise.all([read("app/dashboard-client.tsx"), read("app/fiscal-invoice-importer.tsx"), read("app/api/fiscal-invoice/route.ts"), read("app/api/records/route.ts")]);
   assert.match(dashboard, /Importar PDF\/XML/);

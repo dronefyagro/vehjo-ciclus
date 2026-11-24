@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.59",
+  version: "VC 1.0.60",
   releasedAt: "24/11/2026",
   improvements: [
+    "Cadastro contínuo de múltiplos usuários da plataforma",
+    "Criação protegida contra nomes de usuário duplicados",
+    "Botão para salvar um usuário e cadastrar o próximo sem fechar a tela",
+    "Edição de perfil e status sem obrigar a redefinição da senha",
+    "Confirmação de senha e proteção do último administrador ativo",
     "Acesso administrativo ativado na base privada de usuários",
     "Credenciais e hashes removidos do código público da plataforma",
     "Recuperação administrativa vinculada ao usuário principal dronefyagro",

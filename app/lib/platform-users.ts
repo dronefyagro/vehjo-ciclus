@@ -82,11 +82,16 @@ export async function passwordCredentials(password: string) {
   return { salt, hash: hash.toString("hex") };
 }
 
-export async function appendPlatformUser(input: { username: string; name: string; role: UserRole; password: string; active?: boolean; createdAt?: string; actor: string }) {
+export async function appendPlatformUser(input: { username: string; name: string; role: UserRole; password?: string; active?: boolean; createdAt?: string; actor: string; existing?: StoredPlatformUser }) {
   const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
   if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
   const token = await getAccessToken();
-  const credentials = await passwordCredentials(input.password);
+  const credentials = input.password
+    ? await passwordCredentials(input.password)
+    : input.existing?.source === "sheets" && input.existing.salt && input.existing.passwordHash
+      ? { salt: input.existing.salt, hash: input.existing.passwordHash }
+      : null;
+  if (!credentials) throw new Error("Informe uma senha para concluir o cadastro.");
   const now = new Date().toISOString();
   const row = [USER_RECORD_KIND, input.username.trim(), input.name.trim(), input.role, credentials.salt, credentials.hash, input.active === false ? "Inativo" : "Ativo", input.createdAt || now, now, input.actor];
   const range = encodeURIComponent("'Configurações'!A:J");
