@@ -1,7 +1,13 @@
 export const release = {
-  version: "VC 1.0.60",
+  version: "VC 1.0.61",
   releasedAt: "24/11/2026",
   improvements: [
+    "Visão Geral exclusiva e simplificada para o perfil Usuário padrão",
+    "Valores mensais de Contas a Receber e Contas a Pagar calculados automaticamente",
+    "Indicadores de contratos a vencer e contratos vencidos sem liberar o módulo Operações",
+    "Totais consolidados de clientes, fazendas e hectares apresentados com segurança",
+    "Situação do estoque com alerta automático para itens abaixo do mínimo",
+    "Dados operacionais protegidos por consolidação no servidor antes da exibição",
     "Cadastro contínuo de múltiplos usuários da plataforma",
     "Criação protegida contra nomes de usuário duplicados",
     "Botão para salvar um usuário e cadastrar o próximo sem fechar a tela",

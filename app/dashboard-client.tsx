@@ -11,6 +11,7 @@ import Taxation from "./taxation";
 import FiscalInvoiceImporter from "./fiscal-invoice-importer";
 import UserAccessManagement from "./user-access-management";
 import { canAccessModule, defaultModuleForRole, ROLE_LABELS, type SessionUser } from "./lib/access-control";
+import type { StandardDashboardSummary } from "./lib/standard-dashboard";
 
 type IconName = "overview" | "clients" | "farms" | "contracts" | "receive" | "pay" | "bank" | "billing" | "invoice" | "stock" | "people" | "assets" | "settings" | "search" | "bell" | "shield" | "download" | "report";
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -79,7 +80,7 @@ const isPendingFinancialStatus = (value: string, kind: "receive" | "pay") => {
   return !/cancelad|estornad/.test(status) && !isSettledFinancialStatus(value, kind);
 };
 
-export default function DashboardClient({ data, session }: { data: VehjoData; session: SessionUser }) {
+export default function DashboardClient({ data, session, standardDashboard }: { data: VehjoData; session: SessionUser; standardDashboard: StandardDashboardSummary | null }) {
   const [active, setActive] = useState(() => defaultModuleForRole(session.role));
   const [moduleQuery, setModuleQuery] = useState("");
   const [menu, setMenu] = useState(false);
@@ -129,9 +130,33 @@ export default function DashboardClient({ data, session }: { data: VehjoData; se
     {menu && <button className="backdrop" aria-label="Fechar menu" onClick={() => setMenu(false)}/>} 
     <section className="content"><header><div className="header-title"><button className="menu" onClick={() => setMenu(!menu)} aria-label="Abrir menu">☰</button><div><small>VEJHO CICLUS / {active.toUpperCase()}</small><h1>{active}</h1></div></div><div className="header-actions">{!installed && <button className="install-button" onClick={install}><Icon name="download"/><span>Baixar plataforma</span></button>}<button className="header-icon" aria-label="Pesquisar"><Icon name="search"/></button><button className="header-icon alert" aria-label="Notificações"><Icon name="bell"/></button><div className="live-status"><span/>Sistema operacional</div></div></header>
       {!data.connected && <div className="connection-warning"><strong>Atualização temporariamente indisponível</strong><span>{data.error}</span></div>}
-      {active === "Visão geral" ? <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <AdaptiveBankStatementImporter sheets={liveData.sheets} configRows={rows(liveData, "Configurações")} onClose={() => navigateTo(defaultModuleForRole(session.role))} onImported={(updates, cashFlow) => { setSheetData((current) => { const next = { ...current }; for (const [target, importedRows] of Object.entries(updates)) next[target] = [...(current[target] ?? []), ...importedRows]; if (cashFlow) next["Fluxo de Caixa"] = cashFlow; return next; }); navigateTo("Fluxo de Caixa"); }}/> : active === INVOICE_ANALYSIS_SHEET ? <CardCostAnalysis data={liveData} onChange={setSheetData}/> : active === "Empréstimos" ? <LoanManagement data={liveData} onNavigate={navigateTo}/> : active === "Análise de Despesas" ? <ExpenseAnalysis data={liveData} onNavigate={navigateTo}/> : active === "Tributação" ? <Taxation data={liveData} onChange={setSheetData}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : active === "Usuários e Acessos" ? <UserAccessManagement/> : active === "Configurações" ? <Settings data={liveData}/> : <Module key={`${active}:${moduleQuery}`} title={active} data={liveData} onChange={setSheetData} initialQuery={moduleQuery}/>}
+      {active === "Visão geral" ? session.role === "user" && standardDashboard ? <StandardDashboard summary={standardDashboard} onNavigate={navigateTo}/> : <Dashboard data={liveData} summary={summary} onNavigate={navigateTo}/> : active === "Importar Extrato" ? <AdaptiveBankStatementImporter sheets={liveData.sheets} configRows={rows(liveData, "Configurações")} onClose={() => navigateTo(defaultModuleForRole(session.role))} onImported={(updates, cashFlow) => { setSheetData((current) => { const next = { ...current }; for (const [target, importedRows] of Object.entries(updates)) next[target] = [...(current[target] ?? []), ...importedRows]; if (cashFlow) next["Fluxo de Caixa"] = cashFlow; return next; }); navigateTo("Fluxo de Caixa"); }}/> : active === INVOICE_ANALYSIS_SHEET ? <CardCostAnalysis data={liveData} onChange={setSheetData}/> : active === "Empréstimos" ? <LoanManagement data={liveData} onNavigate={navigateTo}/> : active === "Análise de Despesas" ? <ExpenseAnalysis data={liveData} onNavigate={navigateTo}/> : active === "Tributação" ? <Taxation data={liveData} onChange={setSheetData}/> : active === "Inteligência de Negócios" ? <BusinessIntelligence data={liveData} summary={summary}/> : active.startsWith("Relatórios ") ? <ReportsHub category={active.replace("Relatórios ", "") as "Operações" | "Financeiro" | "Gestão"} data={liveData} summary={summary}/> : active === "DRE Gerencial" ? <FinancialReport type={active} data={liveData}/> : active === "Usuários e Acessos" ? <UserAccessManagement/> : active === "Configurações" ? <Settings data={liveData}/> : <Module key={`${active}:${moduleQuery}`} title={active} data={liveData} onChange={setSheetData} initialQuery={moduleQuery}/>}
     </section>
   </main>;
+}
+
+function StandardDashboard({ summary, onNavigate }: { summary: StandardDashboardSummary; onNavigate: (module: string, query?: string) => void }) {
+  return <div className="dashboard standard-dashboard">
+    <div className="dashboard-hero standard-dashboard-hero"><div><span>VISÃO GERAL DO USUÁRIO</span><h2>Resumo operacional</h2><p>Indicadores essenciais da competência atual.</p></div><div className="hero-status"><Icon name="shield"/><span>Perfil protegido</span><strong>Usuário padrão</strong></div></div>
+    <div className="section-heading"><div><span>FINANCEIRO</span><h2>Contas do mês atual</h2></div><span className="secure-status">{summary.monthLabel}</span></div>
+    <div className="standard-overview-grid financial">
+      <button className="standard-overview-card dashboard-link" onClick={() => onNavigate("Contas a Receber")}><span className="metric-icon green"><Icon name="receive"/></span><small>Contas a receber no mês</small><strong>{brl(summary.receivableCurrentMonth)}</strong><em>Abrir Contas a Receber →</em></button>
+      <button className="standard-overview-card dashboard-link" onClick={() => onNavigate("Contas a Pagar")}><span className="metric-icon amber"><Icon name="pay"/></span><small>Contas a pagar no mês</small><strong>{brl(summary.payableCurrentMonth)}</strong><em>Abrir Contas a Pagar →</em></button>
+    </div>
+    <div className="section-heading"><div><span>CONTRATOS</span><h2>Vencimentos da operação</h2></div><span className="secure-status">Próximos 45 dias</span></div>
+    <div className="standard-overview-grid contracts">
+      <article className="standard-overview-card"><span className="metric-icon blue"><Icon name="contracts"/></span><small>Contratos a vencer</small><strong>{summary.contractsExpiring.toLocaleString("pt-BR")}</strong><em>Com vencimento em até 45 dias</em></article>
+      <article className="standard-overview-card warning"><span className="metric-icon amber"><Icon name="contracts"/></span><small>Contratos vencidos</small><strong>{summary.contractsExpired.toLocaleString("pt-BR")}</strong><em>Contratos com prazo encerrado</em></article>
+    </div>
+    <div className="section-heading"><div><span>BASE CADASTRAL</span><h2>Dimensão da operação</h2></div><span className="secure-status"><Icon name="shield"/> Totais consolidados</span></div>
+    <div className="standard-overview-grid base">
+      <article className="standard-overview-card"><span className="metric-icon violet"><Icon name="clients"/></span><small>Total de clientes</small><strong>{summary.clients.toLocaleString("pt-BR")}</strong><em>Clientes cadastrados</em></article>
+      <article className="standard-overview-card"><span className="metric-icon amber"><Icon name="farms"/></span><small>Total de fazendas</small><strong>{summary.farms.toLocaleString("pt-BR")}</strong><em>Fazendas cadastradas</em></article>
+      <article className="standard-overview-card"><span className="metric-icon green"><Icon name="farms"/></span><small>Total de hectares</small><strong>{summary.hectares.toLocaleString("pt-BR")} ha</strong><em>Área total da base</em></article>
+    </div>
+    <div className="section-heading"><div><span>ALMOXARIFADO</span><h2>Situação do estoque</h2></div><span className={`stock-situation ${summary.stockLow > 0 ? "warning" : "regular"}`}>{summary.stockSituation}</span></div>
+    <button className="standard-stock-card dashboard-link" onClick={() => onNavigate("Estoque")}><span className="metric-icon green"><Icon name="stock"/></span><div><small>Itens cadastrados</small><strong>{summary.stockItems.toLocaleString("pt-BR")}</strong></div><div><small>Estoque baixo</small><strong>{summary.stockLow.toLocaleString("pt-BR")}</strong></div><em>Abrir Estoque →</em></button>
+  </div>;
 }
 
 function Dashboard({ data, summary, onNavigate }: { data: VehjoData; summary: DashboardSummary; onNavigate: (module: string, query?: string) => void }) {
@@ -422,7 +447,7 @@ function Settings({ data }: { data: VehjoData }) {
   return <div className="module-page">
     <div className="module-intro"><div className="module-title"><span className="module-icon"><Icon name="settings"/></span><div><span>ADMINISTRAÇÃO</span><h2>Configurações</h2><p>Preferências gerais e informações da plataforma</p></div></div></div>
     <div className="settings-grid">
-      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><Image src="/ciclus-symbol.svg" alt="Ciclus" width={72} height={72}/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.61</strong></div></section>
+      <section className="card release-card"><div className="release-heading"><div><span>VERSÃO ATUAL</span><h3>{release.version}</h3><p>Publicada em {release.releasedAt}</p></div><Image src="/ciclus-symbol.svg" alt="Ciclus" width={72} height={72}/></div><h4>Melhorias desta versão</h4><ul>{release.improvements.map((item) => <li key={item}><span>✓</span>{item}</li>)}</ul><div className="next-release"><span>Próxima versão planejada</span><strong>VC 1.0.62</strong></div></section>
       <section className="card system-card"><span>INFORMAÇÕES DO SISTEMA</span><h3>VEJHO Ciclus</h3><dl><div><dt>Ambiente</dt><dd>Dronefy Agro</dd></div><div><dt>Situação</dt><dd className="online">Operacional</dd></div><div><dt>Módulos ativos</dt><dd>{Object.keys(data.sheets).length}</dd></div><div><dt>Atualizações</dt><dd>Progressivas</dd></div></dl></section>
     </div>
   </div>;

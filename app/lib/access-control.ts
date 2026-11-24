@@ -13,6 +13,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const STANDARD_MODULES = new Set([
+  "Visão geral",
   "Contas a Receber",
   "Contas a Pagar",
   "Fornecedores",
@@ -32,8 +33,8 @@ export function canAccessModule(role: UserRole, moduleName: string) {
   return STANDARD_MODULES.has(moduleName);
 }
 
-export function defaultModuleForRole(role: UserRole) {
-  return role === "user" ? "Contas a Receber" : "Visão geral";
+export function defaultModuleForRole(role: UserRole): string {
+  return ({ admin: "Visão geral", supervisor: "Visão geral", user: "Visão geral" } as const)[role];
 }
 
 const SHEET_MODULE: Record<string, string> = {

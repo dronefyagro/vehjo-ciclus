@@ -67,13 +67,34 @@ test("aplica os perfis de acesso no menu, nos dados e nas APIs", async () => {
   const [access, dashboard, home, records] = await Promise.all([read("app/lib/access-control.ts"), read("app/dashboard-client.tsx"), read("app/page.tsx"), read("app/api/records/route.ts")]);
   assert.match(access, /SUPERVISOR_BLOCKED = new Set\(\["Configurações", "Usuários e Acessos"\]\)/);
   assert.match(access, /STANDARD_MODULES/);
+  assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Visão geral"/);
   assert.match(access, /"Contas a Receber"/);
   assert.match(access, /"Notas Fiscais"/);
-  assert.doesNotMatch(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Visão geral"|"Clientes"|"Relatórios Financeiro"/);
+  assert.doesNotMatch(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Clientes"|"Relatórios Financeiro"/);
   assert.match(dashboard, /visibleNav/);
   assert.match(dashboard, /defaultModuleForRole/);
   assert.match(home, /canAccessSheet/);
   assert.match(records, /canAccessSheet\(session\.role, sheet\)/);
+});
+
+test("entrega ao usuário padrão somente a visão geral consolidada", async () => {
+  const [access, home, dashboard, summary] = await Promise.all([
+    read("app/lib/access-control.ts"),
+    read("app/page.tsx"),
+    read("app/dashboard-client.tsx"),
+    read("app/lib/standard-dashboard.ts"),
+  ]);
+  assert.match(access, /defaultModuleForRole[\s\S]*user: "Visão geral"/);
+  assert.match(home, /session\.role === "user" \? buildStandardDashboardSummary\(data\) : null/);
+  assert.match(home, /Object\.entries\(data\.sheets\)\.flatMap/);
+  assert.match(home, /canAccessSheet\(session\.role, name\)/);
+  assert.match(dashboard, /session\.role === "user" && standardDashboard/);
+  assert.match(dashboard, /Contas a receber no mês/);
+  assert.match(dashboard, /Contratos a vencer/);
+  assert.match(dashboard, /Total de clientes/);
+  assert.match(dashboard, /Situação do estoque/);
+  assert.match(summary, /contractsExpiring/);
+  assert.match(summary, /stockSituation/);
 });
 
 test("permite cadastrar e administrar vários usuários com segurança", async () => {
