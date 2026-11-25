@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.67",
+  version: "VC 1.0.68",
   releasedAt: "25/11/2026",
   improvements: [
+    "Classificações Financeiras vinculadas diretamente a Contas a Pagar e Contas a Receber",
+    "Seletor de combinação completa preenche seis campos financeiros automaticamente",
+    "Somente classificações ativas e aplicáveis ao módulo são apresentadas",
+    "Filtros dependentes preservados para ajustes controlados no lançamento",
     "Gastos com posto, combustível e abastecimento consolidados automaticamente como Combustível",
     "Regra aplicada aos registros existentes da Análise de Faturas",
     "Novas importações recebem a categoria Combustível antes da confirmação",
