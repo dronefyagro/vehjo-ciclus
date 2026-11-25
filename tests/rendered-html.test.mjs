@@ -98,6 +98,10 @@ test("cria e aplica classificações financeiras hierárquicas", async () => {
   assert.match(sheets, /FINANCIAL_CLASSIFICATION_SEED/);
   assert.match(dashboard, /classificationHierarchy/);
   assert.match(dashboard, /catalogOptions/);
+  assert.match(dashboard, /financialClassificationLegend/);
+  assert.match(dashboard, /Como usar as classificações financeiras/);
+  assert.match(dashboard, /Não representa a conta bancária/);
+  assert.match(dashboard, /Regra prática:/);
   assert.match(records, /sheet === FINANCIAL_CLASSIFICATIONS_SHEET/);
 });
 

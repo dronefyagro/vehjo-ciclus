@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.65",
+  version: "VC 1.0.66",
   releasedAt: "25/11/2026",
   improvements: [
+    "Legenda didática incorporada à aba Classificações Financeiras",
+    "Função e local de uso explicados para cada nível da classificação",
+    "Fluxo visual orienta o preenchimento do Tipo Contábil até o Empenho",
+    "Diferença entre vínculo gerencial e conta bancária destacada para evitar erros",
+    "Guia responsivo com opção de exibir ou ocultar",
     "Nova aba Classificações Financeiras disponível para todos os perfis",
     "516 combinações hierárquicas incorporadas a partir da base de cadastros financeiros",
     "Tipo Contábil, Conta Corrente, Contabilidade, Categoria, Centro de Custo e Empenho organizados em uma única estrutura",
