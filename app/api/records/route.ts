@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAccessToken, SHEET_NAMES } from "../../lib/google-sheets";
+import { ensureFinancialClassificationsSheet, getAccessToken, SHEET_NAMES } from "../../lib/google-sheets";
+import { FINANCIAL_CLASSIFICATIONS_SHEET } from "../../lib/financial-classifications";
 import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "../../lib/invoice-analysis";
 import { normalizeCells, normalizeRows, rejectUnsafeMutation, validSheetRowIndex } from "../../lib/api-guard";
 import { getRequestSession } from "../../lib/auth";
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
     if (!spreadsheetId) throw new Error("A fonte de dados não está configurada.");
     const token = await getAccessToken();
     const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
+    if (sheet === FINANCIAL_CLASSIFICATIONS_SHEET) await ensureFinancialClassificationsSheet(spreadsheetId, headers);
     if (sheet === INVOICE_ANALYSIS_SHEET) await ensureInvoiceAnalysisSheet(spreadsheetId, headers);
 
     if (action === "learn-bank-rules") {

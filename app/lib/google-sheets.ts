@@ -1,5 +1,10 @@
 import { createSign } from "node:crypto";
 import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "./invoice-analysis";
+import {
+  FINANCIAL_CLASSIFICATION_HEADERS,
+  FINANCIAL_CLASSIFICATION_SEED,
+  FINANCIAL_CLASSIFICATIONS_SHEET,
+} from "./financial-classifications";
 
 export type SheetRow = string[];
 
@@ -17,6 +22,7 @@ export const SHEET_NAMES = [
   "Contas a Receber",
   "Contas a Pagar",
   "Contas Bancárias",
+  FINANCIAL_CLASSIFICATIONS_SHEET,
   "Fornecedores",
   "Plano de Contas",
   "Orçamento",
@@ -75,6 +81,58 @@ export async function getAccessToken() {
   return body.access_token;
 }
 
+export async function ensureFinancialClassificationsSheet(
+  spreadsheetId: string,
+  headers: Record<string, string>,
+) {
+  const metadata = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+    { headers, cache: "no-store" },
+  );
+  if (!metadata.ok) throw new Error("Não foi possível conferir as classificações financeiras.");
+  const info = (await metadata.json()) as {
+    sheets?: Array<{ properties: { title: string } }>;
+  };
+  if (info.sheets?.some((item) => item.properties.title === FINANCIAL_CLASSIFICATIONS_SHEET)) return;
+
+  const create = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        requests: [{
+          addSheet: {
+            properties: {
+              title: FINANCIAL_CLASSIFICATIONS_SHEET,
+              gridProperties: {
+                rowCount: Math.max(1000, FINANCIAL_CLASSIFICATION_SEED.length + 100),
+                columnCount: FINANCIAL_CLASSIFICATION_HEADERS.length,
+                frozenRowCount: 1,
+              },
+            },
+          },
+        }],
+      }),
+    },
+  );
+  if (!create.ok) throw new Error("Não foi possível criar a área de classificações financeiras.");
+
+  const lastColumn = String.fromCharCode(64 + FINANCIAL_CLASSIFICATION_HEADERS.length);
+  const range = encodeURIComponent(`'${FINANCIAL_CLASSIFICATIONS_SHEET}'!A1:${lastColumn}${FINANCIAL_CLASSIFICATION_SEED.length + 1}`);
+  const write = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        values: [[...FINANCIAL_CLASSIFICATION_HEADERS], ...FINANCIAL_CLASSIFICATION_SEED],
+      }),
+    },
+  );
+  if (!write.ok) throw new Error("A área foi criada, mas a base inicial não pôde ser registrada.");
+}
+
 export async function getVehjoData(): Promise<VehjoData> {
   const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
   if (!spreadsheetId) {
@@ -88,6 +146,10 @@ export async function getVehjoData(): Promise<VehjoData> {
 
   try {
     const token = await getAccessToken();
+    await ensureFinancialClassificationsSheet(spreadsheetId, {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    });
     const params = new URLSearchParams();
     const requiredSheets = SHEET_NAMES.filter((name) => name !== INVOICE_ANALYSIS_SHEET);
     for (const name of requiredSheets) params.append("ranges", `'${name}'!A1:Z5000`);

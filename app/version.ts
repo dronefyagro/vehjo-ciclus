@@ -1,7 +1,14 @@
 export const release = {
-  version: "VC 1.0.64",
-  releasedAt: "24/11/2026",
+  version: "VC 1.0.65",
+  releasedAt: "25/11/2026",
   improvements: [
+    "Nova aba Classificações Financeiras disponível para todos os perfis",
+    "516 combinações hierárquicas incorporadas a partir da base de cadastros financeiros",
+    "Tipo Contábil, Conta Corrente, Contabilidade, Categoria, Centro de Custo e Empenho organizados em uma única estrutura",
+    "Contas a Pagar e Contas a Receber alimentadas automaticamente pelas classificações ativas",
+    "Seleções dependentes reduzem combinações incompatíveis nos lançamentos financeiros",
+    "Aplicação configurável por Contas a Pagar, Contas a Receber ou ambos",
+    "Referências protegidas excluídas da base inicial",
     "Leitura óptica automática para Notas Fiscais sem texto pesquisável",
     "PDFs com letras convertidas em desenhos reconhecidos diretamente no navegador",
     "Nota da Milena validada com número, cliente, emissão, valor e chave de acesso",

@@ -74,11 +74,31 @@ test("aplica os perfis de acesso no menu, nos dados e nas APIs", async () => {
   assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Contratos"/);
   assert.match(access, /"Contas a Receber"/);
   assert.match(access, /"Notas Fiscais"/);
+  assert.match(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Classificações Financeiras"/);
   assert.doesNotMatch(access.match(/const STANDARD_MODULES[\s\S]*?\]\);/)?.[0] ?? "", /"Relatórios Financeiro"/);
   assert.match(dashboard, /visibleNav/);
   assert.match(dashboard, /defaultModuleForRole/);
   assert.match(home, /canAccessSheet/);
   assert.match(records, /canAccessSheet\(session\.role, sheet\)/);
+});
+
+test("cria e aplica classificações financeiras hierárquicas", async () => {
+  const [catalog, sheets, dashboard, records] = await Promise.all([
+    read("app/lib/financial-classifications.ts"),
+    read("app/lib/google-sheets.ts"),
+    read("app/dashboard-client.tsx"),
+    read("app/api/records/route.ts"),
+  ]);
+  assert.match(catalog, /FINANCIAL_CLASSIFICATIONS_SHEET = "Classificações Financeiras"/);
+  assert.match(catalog, /"Tipo Contábil"/);
+  assert.match(catalog, /"Categoria Contábil"/);
+  assert.match(catalog, /"Centro de Custo"/);
+  assert.match(catalog, /"Empenho"/);
+  assert.match(sheets, /ensureFinancialClassificationsSheet/);
+  assert.match(sheets, /FINANCIAL_CLASSIFICATION_SEED/);
+  assert.match(dashboard, /classificationHierarchy/);
+  assert.match(dashboard, /catalogOptions/);
+  assert.match(records, /sheet === FINANCIAL_CLASSIFICATIONS_SHEET/);
 });
 
 test("entrega ao usuário padrão somente a visão geral consolidada", async () => {
