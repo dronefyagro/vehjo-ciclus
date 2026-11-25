@@ -1,7 +1,11 @@
 export const release = {
-  version: "VC 1.0.66",
+  version: "VC 1.0.67",
   releasedAt: "25/11/2026",
   improvements: [
+    "Gastos com posto, combustível e abastecimento consolidados automaticamente como Combustível",
+    "Regra aplicada aos registros existentes da Análise de Faturas",
+    "Novas importações recebem a categoria Combustível antes da confirmação",
+    "Categoria normalizada no gráfico e na listagem detalhada",
     "Legenda didática incorporada à aba Classificações Financeiras",
     "Função e local de uso explicados para cada nível da classificação",
     "Fluxo visual orienta o preenchimento do Tipo Contábil até o Empenho",

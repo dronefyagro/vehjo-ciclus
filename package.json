@@ -1,6 +1,6 @@
 {
   "name": "vehjo-ciclus",
-  "version": "1.0.66",
+  "version": "1.0.67",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
