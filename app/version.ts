@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.71",
+  version: "VC 1.0.72",
   releasedAt: "26/11/2026",
   improvements: [
+    "Login passa a utilizar a credencial com a data de atualização mais recente",
+    "Redefinições de senha deixam de ser substituídas por registros administrativos antigos",
     "Confirmação de salvamento compatível com datas internas do Google Sheets",
     "Falso alerta de cadastro não salvo eliminado nos lançamentos financeiros",
     "Cadastros manuais gravados exatamente na estrutura de colunas de cada aba",

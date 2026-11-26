@@ -155,6 +155,8 @@ test("permite cadastrar e administrar vários usuários com segurança", async (
   assert.match(route, /status: 409/);
   assert.match(route, /pelo menos um administrador ativo/);
   assert.match(users, /input\.existing\?\.source === "sheets"/);
+  assert.match(users, /Date\.parse\(candidate\.updatedAt \|\| candidate\.createdAt\)/);
+  assert.match(users, /candidateTime >= currentTime/);
 });
 
 test("importa notas fiscais em PDF e XML com conferência e deduplicação", async () => {

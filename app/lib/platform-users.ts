@@ -38,10 +38,15 @@ export async function getPlatformUsers(): Promise<StoredPlatformUser[]> {
   const storedRows = await configurationRows().catch(() => []);
   for (const row of storedRows) {
     if (row[0] !== USER_RECORD_KIND || !row[1] || !isUserRole(row[3])) continue;
-    latest.set(row[1].toLocaleLowerCase("pt-BR"), {
+    const key = row[1].toLocaleLowerCase("pt-BR");
+    const candidate: StoredPlatformUser = {
       username: row[1], name: row[2] || row[1], role: row[3], salt: row[4] || "", passwordHash: row[5] || "",
       active: !/^inativo$/i.test(row[6] || "Ativo"), createdAt: row[7] || "", updatedAt: row[8] || "", source: "sheets",
-    });
+    };
+    const current = latest.get(key);
+    const candidateTime = Date.parse(candidate.updatedAt || candidate.createdAt);
+    const currentTime = current ? Date.parse(current.updatedAt || current.createdAt) : Number.NEGATIVE_INFINITY;
+    if (!current || !Number.isFinite(currentTime) || (Number.isFinite(candidateTime) && candidateTime >= currentTime)) latest.set(key, candidate);
   }
   const bootstrapUsername = process.env.CICLUS_ACCESS_USER?.trim() || DEFAULT_USER;
   const recoveryHash = configuredRecoveryHash();
