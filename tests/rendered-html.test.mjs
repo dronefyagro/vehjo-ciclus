@@ -27,6 +27,17 @@ test("grava dados importados como valores literais", async () => {
   assert.match(recordsRoute, /sheet === "Contratos" \? "USER_ENTERED" : "RAW"/);
 });
 
+test("confirma o salvamento antes de atualizar a interface", async () => {
+  const [records, dashboard, login] = await Promise.all([read("app/api/records/route.ts"), read("app/dashboard-client.tsx"), read("app/login/page.tsx")]);
+  assert.match(records, /confirmStoredRow/);
+  assert.match(records, /Não salvo: a base de dados não confirmou/);
+  assert.match(records, /A\$\{targetRow\}:\$\{column\(submittedValues\.length\)\}\$\{targetRow\}/);
+  assert.match(dashboard, /result\.ok !== true \|\| !result\.row \|\| !result\.rowIndex/);
+  assert.match(dashboard, /Cadastro não salvo/);
+  assert.match(login, /showPassword/);
+  assert.match(login, /aria-label=\{showPassword \? "Ocultar senha" : "Exibir senha"\}/);
+});
+
 test("valida módulos, células, lotes e linhas antes de alterar a base", async () => {
   const [recordsRoute, guard] = await Promise.all([read("app/api/records/route.ts"), read("app/lib/api-guard.ts")]);
   assert.match(recordsRoute, /SHEET_NAMES\.includes/);

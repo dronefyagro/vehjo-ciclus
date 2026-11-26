@@ -44,6 +44,25 @@ const financialDate = (input: unknown) => {
   return raw;
 };
 
+const sameStoredValue = (expected: unknown, actual: unknown) => {
+  const normalize = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+  const left = normalize(expected), right = normalize(actual);
+  if (left === right) return true;
+  const numeric = /^-?\d+(?:[.,]\d+)?$/;
+  return numeric.test(left) && numeric.test(right) && Number(left.replace(",", ".")) === Number(right.replace(",", "."));
+};
+
+const confirmStoredRow = async (spreadsheetId: string, headers: Record<string, string>, sheet: string, rowIndex: number, expected: string[]) => {
+  const range = encodeURIComponent(`'${sheet}'!A${rowIndex}:${column(expected.length)}${rowIndex}`);
+  const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueRenderOption=FORMULA&dateTimeRenderOption=FORMATTED_STRING`, { headers });
+  if (!response.ok) throw new Error("Não salvo: não foi possível confirmar a gravação na base de dados.");
+  const result = await response.json() as { values?: Array<Array<string | number>> };
+  const stored = (result.values?.[0] ?? []).map((value) => String(value ?? ""));
+  const mismatch = expected.some((value, index) => value !== "" && !sameStoredValue(value, stored[index]));
+  if (mismatch) throw new Error("Não salvo: a base de dados não confirmou todos os campos do cadastro. Tente novamente.");
+  return Array.from({ length: expected.length }, (_, index) => stored[index] ?? "");
+};
+
 const normalizedFinancialKey = (row: string[]) => {
   const date = financialDate(row[1]);
   const value = financialNumber(row[14]).toFixed(2);
@@ -170,7 +189,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, learned: learnedRows.length });
     }
 
-    let generatedCode: string | undefined, imported: number | undefined, skipped = 0, importedRows: string[][] | undefined;
+    let generatedCode: string | undefined, imported: number | undefined, skipped = 0, importedRows: string[][] | undefined, savedRow: string[] | undefined, savedRowIndex: number | undefined;
     if (action === "bulk-create") {
       if (!rows) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos válidos." }, { status: 400 });
       const financialSheet = sheet === "Contas a Receber" || sheet === "Contas a Pagar";
@@ -263,10 +282,26 @@ export async function POST(request: Request) {
       }
       if (sheet === "Contas a Pagar") submittedValues[14] = String(financialNumber(submittedValues[14]));
       completeFinancialPeriod(sheet, submittedValues);
-      const range = encodeURIComponent(`'${sheet}'!A:Z`);
       const inputOption = sheet === "Contratos" ? "USER_ENTERED" : "RAW";
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=${inputOption}&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: [submittedValues] }) });
-      if (!response.ok) throw new Error("Não foi possível salvar o cadastro.");
+      if (sheet === "Configurações") {
+        const range = encodeURIComponent(`'${sheet}'!A:${column(submittedValues.length)}`);
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=${inputOption}&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: [submittedValues] }) });
+        if (!response.ok) throw new Error("Não salvo: não foi possível gravar o cadastro.");
+        const result = await response.json() as { updates?: { updatedRange?: string; updatedRows?: number } };
+        const row = Number(result.updates?.updatedRange?.match(/![A-Z]+(\d+):/)?.[1]);
+        if (result.updates?.updatedRows !== 1 || !row) throw new Error("Não salvo: a base de dados não confirmou a inclusão.");
+        savedRowIndex = row;
+      } else {
+        const targetRow = existingCodeCount + 2;
+        const range = encodeURIComponent(`'${sheet}'!A${targetRow}:${column(submittedValues.length)}${targetRow}`);
+        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=${inputOption}`, { method: "PUT", headers, body: JSON.stringify({ values: [submittedValues] }) });
+        if (!response.ok) throw new Error("Não salvo: não foi possível gravar o cadastro.");
+        const result = await response.json() as { updatedRows?: number; updatedCells?: number };
+        const expectedCells = submittedValues.filter((value) => value !== "").length;
+        if (result.updatedRows !== 1 || (result.updatedCells ?? 0) < expectedCells) throw new Error("Não salvo: a base de dados confirmou apenas parte dos campos.");
+        savedRowIndex = targetRow;
+      }
+      savedRow = await confirmStoredRow(spreadsheetId, headers, sheet, savedRowIndex, submittedValues);
     } else if (action === "update" && validSheetRowIndex(rowIndex) && values) {
       const submittedValues = [...values];
       if (sheet === "Contratos") {
@@ -280,7 +315,12 @@ export async function POST(request: Request) {
       const range = encodeURIComponent(`'${sheet}'!A${rowIndex}:${column(submittedValues.length)}${rowIndex}`);
       const inputOption = sheet === "Contratos" ? "USER_ENTERED" : "RAW";
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=${inputOption}`, { method: "PUT", headers, body: JSON.stringify({ values: [submittedValues] }) });
-      if (!response.ok) throw new Error("Não foi possível atualizar o cadastro.");
+      if (!response.ok) throw new Error("Não salvo: não foi possível atualizar o cadastro.");
+      const result = await response.json() as { updatedRows?: number; updatedCells?: number };
+      const expectedCells = submittedValues.filter((value) => value !== "").length;
+      if (result.updatedRows !== 1 || (result.updatedCells ?? 0) < expectedCells) throw new Error("Não salvo: a base de dados confirmou apenas parte da atualização.");
+      savedRowIndex = Number(rowIndex);
+      savedRow = await confirmStoredRow(spreadsheetId, headers, sheet, savedRowIndex, submittedValues);
     } else if (action === "delete" && validSheetRowIndex(rowIndex)) {
       const metadata = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, { headers });
       if (!metadata.ok) throw new Error("Não foi possível conferir a aba antes da exclusão.");
@@ -291,7 +331,7 @@ export async function POST(request: Request) {
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
     const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" || sheet === "Transferências" ? await syncCashFlow(spreadsheetId, headers) : undefined;
-    return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, duplicates: skipped, rows: importedRows, cashFlow });
+    return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, duplicates: skipped, rows: importedRows, row: savedRow, rowIndex: savedRowIndex, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
   }

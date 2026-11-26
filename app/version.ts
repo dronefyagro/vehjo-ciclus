@@ -1,7 +1,12 @@
 export const release = {
-  version: "VC 1.0.69",
+  version: "VC 1.0.70",
   releasedAt: "26/11/2026",
   improvements: [
+    "Cadastros manuais gravados exatamente na estrutura de colunas de cada aba",
+    "Confirmação de leitura da linha antes de informar que o cadastro foi salvo",
+    "Alerta de Cadastro não salvo mantendo os dados preenchidos para nova tentativa",
+    "Contas a Pagar protegida contra linhas vazias e sequências isoladas",
+    "Opção Exibir ou Ocultar senha incorporada à tela de login",
     "Migração bancária separa receitas, despesas, transferências, faturas, aplicações e empréstimos",
     "Saídas de mesma titularidade deixam de inflar Contas a Pagar",
     "Pagamentos de cartão permanecem no Fluxo de Caixa sem duplicar as despesas analíticas da fatura",
