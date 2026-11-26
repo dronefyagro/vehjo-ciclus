@@ -1,7 +1,9 @@
 export const release = {
-  version: "VC 1.0.70",
+  version: "VC 1.0.71",
   releasedAt: "26/11/2026",
   improvements: [
+    "Confirmação de salvamento compatível com datas internas do Google Sheets",
+    "Falso alerta de cadastro não salvo eliminado nos lançamentos financeiros",
     "Cadastros manuais gravados exatamente na estrutura de colunas de cada aba",
     "Confirmação de leitura da linha antes de informar que o cadastro foi salvo",
     "Alerta de Cadastro não salvo mantendo os dados preenchidos para nova tentativa",

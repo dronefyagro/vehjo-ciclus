@@ -30,6 +30,7 @@ test("grava dados importados como valores literais", async () => {
 test("confirma o salvamento antes de atualizar a interface", async () => {
   const [records, dashboard, login] = await Promise.all([read("app/api/records/route.ts"), read("app/dashboard-client.tsx"), read("app/login/page.tsx")]);
   assert.match(records, /confirmStoredRow/);
+  assert.match(records, /financialDate\(left\), rightDate = financialDate\(right\)/);
   assert.match(records, /Não salvo: a base de dados não confirmou/);
   assert.match(records, /A\$\{targetRow\}:\$\{column\(submittedValues\.length\)\}\$\{targetRow\}/);
   assert.match(dashboard, /result\.ok !== true \|\| !result\.row \|\| !result\.rowIndex/);

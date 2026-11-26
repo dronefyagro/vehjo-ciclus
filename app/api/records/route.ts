@@ -48,6 +48,8 @@ const sameStoredValue = (expected: unknown, actual: unknown) => {
   const normalize = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
   const left = normalize(expected), right = normalize(actual);
   if (left === right) return true;
+  const leftDate = financialDate(left), rightDate = financialDate(right);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(leftDate) && leftDate === rightDate) return true;
   const numeric = /^-?\d+(?:[.,]\d+)?$/;
   return numeric.test(left) && numeric.test(right) && Number(left.replace(",", ".")) === Number(right.replace(",", "."));
 };
