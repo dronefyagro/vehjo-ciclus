@@ -32,7 +32,7 @@ const section = (value: string, start: RegExp, end: RegExp) => {
 };
 const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const ocrIdentity = (value: string) => {
-  const row = first(value, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+\d{2}\.\d{5}\s*\/\s*[\d.-]+)/i]);
+  const row = first(value, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|/]\s*CEP\s+(.+?)(?=\s+\d{2}\.\d{5}\s*\/\s*[\d.-]+)/i]);
   const match = row.match(/^(.+?)\s+((?:\p{Lu}\p{Ll}+\s+)*\p{Lu}\p{Ll}+)\s*\/\s*([A-Z]{2})$/u);
   return match ? { name: cleanText(match[1]), location: `${cleanText(match[2])} / ${match[3]}` } : { name: "", location: "" };
 };
@@ -73,18 +73,18 @@ export function parseFiscalPdfText(text: string, fileName: string): FiscalDocume
   const partyIdentity = ocrIdentity(partySection);
   const providerIdentity = ocrIdentity(providerSection);
   const party = partyIdentity.name || cleanText(first(partySection || compact, [
-    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i,
+    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i,
     /Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i,
     /(?:destinat[aá]rio(?:\s*\/\s*remetente)?|tomador(?:\s+de\s+servi[cç]os)?)[\s:.-]{0,20}(?:raz[aã]o\s+social|nome)?[\s:.-]*([A-ZÀ-Ú0-9][A-ZÀ-Ú0-9 .&'-]{3,100}?)(?=\s+(?:CNPJ|CPF|ENDERE[CÇ]O|INSCRI[CÇ][AÃ]O|DATA))/i,
   ]));
   const partyDocument = first(partySection, [/CNPJ\s*\/\s*CPF\s*\/\s*NIF\s+([\d./-]{11,20})/i, /((?:\d{3}\.\d{3}\.\d{3}-\d{2})|(?:\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}))/]);
   const partyLocation = partyIdentity.location || cleanText(first(partySection, [
     /Munic[ií]pio\s*\/\s*Sigla UF\s+(.+?)(?=\s+C[oó]digo IBGE\s*\/\s*CEP)/i,
-    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+.+?\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2})\s+\d{2}\.\d{5}/i,
+    /Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|/]\s*CEP\s+.+?\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2})\s+\d{2}\.\d{5}/i,
   ]));
   const partyAddress = cleanText(first(partySection, [/Endere[cç]o\s+(.+?)(?=\s+E-mail)/i, /Endere[cç]o\s+E-mail\s+(.+?)(?=$)/i])).replace(/\s+-$/, "");
   const partyEmail = first(partySection, [/E-mail\s+([^\s]+@[^\s]+)/i]);
-  const provider = providerIdentity.name || cleanText(first(providerSection, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|\/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i, /Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i]));
+  const provider = providerIdentity.name || cleanText(first(providerSection, [/Nome\s*\/\s*Nome Empresarial\s+Munic[ií]pio\s*\/\s*Sigla UF\s+C[oó]digo IBGE\s*[|/]\s*CEP\s+(.+?)(?=\s+[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*\s*\/\s*[A-Z]{2}\s+\d{2}\.\d{5})/i, /Nome\s*\/\s*Nome Empresarial\s+(.+?)(?=\s+Munic[ií]pio\s*\/\s*Sigla UF)/i]));
   const serviceDescription = cleanText(first(serviceSection, [/Descri[cç][aã]o do Servi[cç]o\s+(.+?)(?=$)/i])).replace(/^[.\-:\s]+/, "");
   const serviceCode = first(serviceSection, [/[CT][oó]digo de Tributa[cç][aã]o Nacional\/Municipal(?:\s+[CT][oó]digo da NBS\s+[CT][oó]cal da Presta[cç][aã]o[^\d]+)?\s+([\d.]+(?:\s*\/\s*[^\s]+)?)/i]);
   const taxBase = money(first(compact, [/BC ISSQN\s*(?:R\$\s*)?([\d.]+,\d{2})/i]));

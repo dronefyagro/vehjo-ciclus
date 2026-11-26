@@ -4,34 +4,19 @@ import { rejectUnsafeMutation } from "../../lib/api-guard";
 import { getRequestSession } from "../../lib/auth";
 import { canAccessModule } from "../../lib/access-control";
 import { loadPdfReader } from "../../lib/pdf-reader";
+import {
+  classifyBankMigration,
+  extractBankDocument,
+  reconcileRelatedBankPairs,
+  type BankLearnedRule as LearnedRule,
+  type BankMovement as Movement,
+  type BankRawTransaction as RawTransaction,
+} from "../../lib/bank-migration";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Movement = "credit" | "debit";
-type Confidence = "Alta" | "Média" | "Baixa";
-type LearnedRule = {
-  key: string;
-  target: string;
-  category: string;
-  costRelation?: string;
-  costBehavior?: string;
-  origin?: string;
-  destination?: string;
-};
-
-type RawTransaction = {
-  date: string;
-  amount: number;
-  movement: Movement;
-  description: string;
-  counterparty: string;
-  document?: string;
-  externalId?: string;
-};
-
 const normalize = (value = "") => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, " ").trim().toLowerCase();
-const digits = (value = "") => value.replace(/\D/g, "");
 const money = (value = "") => {
   const clean = value.replace(/R\$|\s/g, "").replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".");
   const parsed = Number(clean.replace(/[^\d.-]/g, ""));
@@ -43,14 +28,6 @@ const isoDate = (value: string) => {
   const ofx = value.match(/(\d{4})(\d{2})(\d{2})/);
   return ofx ? `${ofx[1]}-${ofx[2]}-${ofx[3]}` : "";
 };
-const ruleKey = (transaction: Pick<RawTransaction, "document" | "counterparty">) => {
-  const document = digits(transaction.document);
-  if (document.length >= 11) return `doc:${document}`;
-  const name = normalize(transaction.counterparty)
-    .replace(/\b(pix|ted|doc|pagamento|transferencia|recebido|enviado|compra|debito|credito|ltda|sa|me|eireli)\b/g, " ")
-    .replace(/\s+/g, " ").trim();
-  return `nome:${name.slice(0, 72)}`;
-};
 const tag = (block: string, name: string) => block.match(new RegExp(`<${name}>\\s*([^<\\r\\n]+)`, "i"))?.[1]?.trim() ?? "";
 const parseOfx = (text: string): RawTransaction[] => [...text.matchAll(/<STMTTRN>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN>|<\/BANKTRANLIST>))/gi)].map((match) => {
   const block = match[1];
@@ -58,7 +35,7 @@ const parseOfx = (text: string): RawTransaction[] => [...text.matchAll(/<STMTTRN
   const name = tag(block, "NAME");
   const memo = tag(block, "MEMO");
   const description = [name, memo].filter(Boolean).join(" · ");
-  const document = description.match(/\b\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/)?.[0];
+  const document = extractBankDocument(description);
   return { date: isoDate(tag(block, "DTPOSTED")), amount: Math.abs(signed), movement: (signed >= 0 ? "credit" : "debit") as Movement, description, counterparty: name || memo || "Não identificado", document, externalId: tag(block, "FITID") };
 }).filter((item) => item.date && item.amount);
 
@@ -118,7 +95,7 @@ const parsePdfBlocks = (text: string): RawTransaction[] => {
     if (!amountMatch) continue;
     const parts = line.split("|").map((value) => value.replace(/^…$|^\.\.\.$/, "").trim()).filter(Boolean);
     const transactionType = parts[0] ?? "Movimentação bancária";
-    const document = line.match(/\b\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/)?.[0];
+    const document = extractBankDocument(line);
     const counterparty = parts.find((part, index) => index > 0 && /[A-Za-zÀ-ÿ]{3}/.test(part) && !/R\$/.test(part) && !/^\d{2}\.?\d{3}/.test(part)) ?? transactionType;
     lineTransactions.push({ date: currentDate, amount: Math.abs(money(amountMatch[2])), movement: amountMatch[1] === "+" ? "credit" : "debit", description: line, counterparty, document });
   }
@@ -131,7 +108,7 @@ const parsePdfBlocks = (text: string): RawTransaction[] => {
     const amountMatch = amountMatches.find((item) => item[1]) ?? amountMatches[0]; if (!amountMatch) continue;
     const normalizedBlock = normalize(joined); const explicitSign = amountMatch[1];
     const movement: Movement = explicitSign === "+" || /pix recebido|transferencia recebida|credito|recebimento/.test(normalizedBlock) ? "credit" : "debit";
-    const document = joined.match(/\b\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/)?.[0];
+    const document = extractBankDocument(joined);
     const ignored = /^(\d{2}\/\d{2}\/\d{4}|pix|ted|doc|pagamento|transfer[eê]ncia|compra|d[eé]bito|cr[eé]dito|boleto|tarifa|valor|saldo|ag[eê]ncia|conta)/i;
     const candidates = block.filter((line) => !ignored.test(line) && !/R\$|\d{1,3}(?:\.\d{3})*,\d{2}/.test(line) && line.length > 2);
     const counterparty = candidates.find((line) => /[A-Za-zÀ-ÿ]{3}/.test(line)) ?? block.find((line) => /[A-Za-zÀ-ÿ]{3}/.test(line) && !ignored.test(line)) ?? "Não identificado";
@@ -140,39 +117,6 @@ const parsePdfBlocks = (text: string): RawTransaction[] => {
   if (transactions.length) return transactions;
   const inline = /(?:^|\n)\s*(\d{2}\/\d{2}\/\d{4})\s+(.{3,160}?)\s+([+-])?\s*(?:R\$\s*)?([\d.]+,\d{2})(?=\s*(?:\n|$))/g;
   return [...text.matchAll(inline)].map((match) => ({ date: isoDate(match[1]), amount: Math.abs(money(match[4])), movement: match[3] === "+" || /recebid|credito/i.test(match[2]) ? "credit" : "debit", description: match[2].trim(), counterparty: match[2].trim() }));
-};
-
-const categorySuggestion = (transaction: RawTransaction) => {
-  const value = normalize(`${transaction.counterparty} ${transaction.description}`);
-  const rules: Array<[RegExp, string, string, string]> = [
-    [/posto|combustivel|gasolina|etanol|diesel/, "Combustível", "Direto", "Variável"],
-    [/cemig|energia|eletric/, "Energia elétrica", "Indireto", "Fixo"], [/agua|saneamento|copasa/, "Água e saneamento", "Indireto", "Fixo"],
-    [/telecom|internet|telefon|claro|vivo|tim\b/, "Internet e telecomunicações", "Indireto", "Fixo"],
-    [/hotel|pousada|restaurante|churrasc|lanch|aliment/, "Viagens e alimentação", "Indireto", "Variável"],
-    [/uber|99app|expresso|passagem|azul|gol\b|latam|transport/, "Transporte e viagens", "Indireto", "Variável"],
-    [/fazenda|ministerio|darf|das\b|imposto|tribut/, "Impostos e tributos", "Indireto", "Fixo"],
-    [/conselho|crea|cfta|anuidade|tarifa/, "Taxas e anuidades", "Indireto", "Fixo"],
-    [/parafuso|ferrament|material|supermercado|papelaria/, "Materiais e suprimentos", "Direto", "Variável"],
-    [/software|tecnologia|vindi|google|microsoft|adobe|canva|vercel/, "Serviços financeiros/tecnologia", "Indireto", "Fixo"],
-  ];
-  return rules.find(([pattern]) => pattern.test(value));
-};
-const classify = (transaction: RawTransaction, accountLabel: string, companyDocument: string, learnedRules: Map<string, LearnedRule>) => {
-  const key = ruleKey(transaction); const learned = learnedRules.get(key); const text = normalize(`${transaction.counterparty} ${transaction.description}`); const ownDocument = digits(companyDocument); const counterpartyDocument = digits(transaction.document);
-  const isInternal = ownDocument.length >= 11 && ownDocument === counterpartyDocument || /mesma titularidade|entre contas|transferencia interna/.test(text);
-  const isSettlement = /pagamento (?:da )?fatura|cora scfi|administradora.*cartao/.test(text);
-  const automatic = categorySuggestion(transaction);
-  const defaultTarget = isInternal || isSettlement ? "Transferências" : transaction.movement === "credit" ? "Contas a Receber" : "Contas a Pagar";
-  const target = learned?.target || defaultTarget;
-  const category = learned?.category || (isInternal ? "Transferência interna" : isSettlement ? "Pagamento de fatura" : transaction.movement === "credit" ? "Receita a conciliar" : automatic?.[1] || "Pendente de classificação");
-  const origin = learned?.origin || (transaction.movement === "credit" ? transaction.counterparty : accountLabel);
-  const destination = learned?.destination || (transaction.movement === "credit" ? accountLabel : transaction.counterparty);
-  const confidence: Confidence = learned || isInternal || isSettlement || automatic
-    ? "Alta"
-    : transaction.movement === "credit" || counterpartyDocument.length === 14
-      ? "Média"
-      : "Baixa";
-  return { ...transaction, id: transaction.externalId || `${transaction.date}|${transaction.movement}|${transaction.amount.toFixed(2)}|${key}`, ruleKey: key, target, category, costRelation: learned?.costRelation || automatic?.[2] || "Indireto", costBehavior: learned?.costBehavior || automatic?.[3] || "Variável", origin, destination, confidence, suggestionSource: learned ? "Regra aprendida" : isInternal || isSettlement || automatic ? "Regra automática" : "Revisão necessária", selected: confidence !== "Baixa" };
 };
 
 export async function POST(request: Request) {
@@ -194,7 +138,7 @@ export async function POST(request: Request) {
     const { bank, account, accountLabel } = identifyBankAccount({ text, fileName: file.name, extension }); const companyDocument = text.match(/(?:CNPJ|CPF)[^\d]{0,12}(\d{2}\.?\d{3}\.?\d{3}\/\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})/i)?.[1] ?? "";
     const externalIds = new Set<string>();
     const unique = transactions.filter((transaction) => { if (!transaction.externalId) return true; if (externalIds.has(transaction.externalId)) return false; externalIds.add(transaction.externalId); return true; });
-    const classified = unique.map((transaction, index) => { const result = classify(transaction, accountLabel, companyDocument, learnedRules); return { ...result, id: transaction.externalId || `${result.id}|${index + 1}` }; });
+    const classified = reconcileRelatedBankPairs(unique.map((transaction, index) => { const result = classifyBankMigration(transaction, accountLabel, companyDocument, learnedRules); return { ...result, id: transaction.externalId || `${result.id}|${index + 1}` }; }));
     return NextResponse.json({ fileName: file.name, bank, account, accountLabel, companyDocument, parser, pages, transactions: classified, totals: { credits: classified.filter((item) => item.movement === "credit").reduce((sum, item) => sum + item.amount, 0), debits: classified.filter((item) => item.movement === "debit").reduce((sum, item) => sum + item.amount, 0) }, confidence: { high: classified.filter((item) => item.confidence === "Alta").length, medium: classified.filter((item) => item.confidence === "Média").length, low: classified.filter((item) => item.confidence === "Baixa").length } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível interpretar o extrato." }, { status: 500 });

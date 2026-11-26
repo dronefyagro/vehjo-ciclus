@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parseFiscalPdfText } from "../app/lib/fiscal-invoice-parser.ts";
+import { bankImportKey, classifyBankMigration, extractBankDocument, reconcileRelatedBankPairs } from "../app/lib/bank-migration.ts";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -167,6 +168,48 @@ test("consolida despesas de combustível na análise de faturas", async () => {
   assert.match(dashboard, /\? "Combustível"/);
   assert.match(dashboard, /category: invoiceCostCategory\(item\.merchant, item\.category\)/);
   assert.match(dashboard, /category = invoiceCostCategory\(merchant, record\.values\[categoryIndex\]\)/);
+});
+
+test("migra extratos bancários sem transformar toda saída em despesa", () => {
+  const rules = new Map();
+  const base = { date: "2025-01-13", amount: 722, movement: "debit", description: "Pagamento Pix 40.206.420 0001-43 · PIX EMITIDO OUTRA IF - MESMA TIT.", counterparty: "Pagamento Pix 40.206.420 0001-43", document: extractBankDocument("40.206.420 0001-43"), externalId: "20250113722001" };
+  const internal = classifyBankMigration(base, "Sicoob · Conta 11670-0", "", rules);
+  assert.equal(internal.target, "Transferências");
+  assert.equal(internal.category, "Transferência interna");
+
+  const capital = classifyBankMigration({ ...base, amount: 19, description: "DEB.PARCELAS SUBSC./INTEGR.", counterparty: "DEB.PARCELAS SUBSC./INTEGR.", document: undefined, externalId: "2025010219001" }, "Sicoob · Conta 11670-0", "", rules);
+  assert.equal(capital.target, "Transferências");
+  assert.equal(capital.accounting, "Movimentação patrimonial");
+
+  const fuel = classifyBankMigration({ ...base, amount: 50, description: "COMPRA MASTERCARD MAESTRO · AUTO POSTO LIDER", counterparty: "AUTO POSTO LIDER", document: undefined, externalId: "2025011650001" }, "Sicoob · Conta 11670-0", "", rules);
+  assert.equal(fuel.target, "Contas a Pagar");
+  assert.equal(fuel.category, "Combustível");
+  assert.equal(fuel.accounting, "Despesa");
+
+  const shareholder = classifyBankMigration({ ...base, amount: 900, movement: "credit", description: "PIX RECEBIDO", counterparty: "Jovenildo Carvalho", document: undefined, externalId: "20250122900001" }, "Sicoob · Conta 11670-0", "", rules);
+  assert.equal(shareholder.target, "Contas a Receber");
+  assert.equal(shareholder.accounting, "Empréstimo");
+  assert.equal(shareholder.reviewRequired, true);
+
+  const paired = reconcileRelatedBankPairs([shareholder, classifyBankMigration({ ...base, amount: 900, movement: "debit", description: "PIX EMITIDO", counterparty: "Pagamento Pix ***.194.876-**", document: undefined, externalId: "20250122900002" }, "Sicoob · Conta 11670-0", "", rules)]);
+  assert.equal(paired[1].accounting, "Empréstimo");
+  assert.equal(paired[1].category, "Repasse ou devolução de recurso");
+});
+
+test("usa o identificador do banco para preservar lançamentos legítimos de mesmo valor", () => {
+  const first = bankImportKey("Sicoob", "11670-0", "2025012350001");
+  const second = bankImportKey("Sicoob", "11670-0", "2025012350002");
+  assert.notEqual(first, second);
+});
+
+test("mantém transferências e pagamentos de fatura no fluxo sem duplicar despesas", async () => {
+  const [records, importer, ledger] = await Promise.all([read("app/api/records/route.ts"), read("app/bank-statement-importer.tsx"), read("app/lib/bank-import-ledger.ts")]);
+  assert.match(records, /"'Transferências'!A1:H10000"/);
+  assert.match(records, /sheet === "Transferências" \? await syncCashFlow|sheet === "Transferências"/);
+  assert.match(records, /ensureBankImportLedgerSheet/);
+  assert.match(importer, /bankImports/);
+  assert.match(importer, /ID bancário/);
+  assert.match(ledger, /Importações Bancárias/);
 });
 
 test("reconhece todos os campos essenciais do DANFSe Nacional v2.0", () => {

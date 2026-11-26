@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 type Confidence = "Alta" | "Média" | "Baixa";
 type BankTransaction = {
   id: string;
+  externalId?: string;
   date: string;
   amount: number;
   movement: "credit" | "debit";
@@ -14,6 +15,8 @@ type BankTransaction = {
   ruleKey: string;
   target: "Contas a Receber" | "Contas a Pagar" | "Transferências" | "Ignorar";
   category: string;
+  accounting: string;
+  flowType: string;
   costRelation: string;
   costBehavior: string;
   origin: string;
@@ -21,6 +24,7 @@ type BankTransaction = {
   confidence: Confidence;
   suggestionSource: string;
   selected: boolean;
+  reviewRequired: boolean;
 };
 
 type Analysis = {
@@ -71,15 +75,24 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
     const headers = sheets[target]?.[0] ?? [];
     const values = headers.map(() => "");
     const set = (pattern: RegExp, value: string) => { const index = headerIndex(headers, pattern); if (index >= 0) values[index] = value; };
-    const status = target === "Contas a Receber" ? "Recebido" : target === "Contas a Pagar" ? "Pago" : "Concluída";
-    set(/^data$/i, item.date); set(/^contabilidade$/i, target === "Contas a Receber" ? "Receita" : target === "Contas a Pagar" ? "Despesa" : "Transferência");
+    if (target === "Transferências") {
+      set(/^data$/i, item.date);
+      set(/^conta origem$/i, item.origin);
+      set(/^conta destino$/i, item.destination);
+      set(/^valor$/i, String(Math.abs(item.amount)));
+      set(/^descrição$/i, `[${item.movement === "credit" ? "Entrada" : "Saída"}] ${item.category} · ${item.description.slice(0, 280)} · ID bancário: ${item.externalId || item.id}`);
+      set(/^origem$/i, `Extrato ${analysis?.bank ?? "bancário"} · ${analysis?.fileName ?? "arquivo importado"}`);
+      set(/ano de exercício/i, item.date.slice(0, 4));
+      return values;
+    }
+    const status = target === "Contas a Receber" ? "Recebido" : "Pago";
+    set(/^data$/i, item.date); set(/^contabilidade$/i, item.accounting);
     set(/^ano$/i, item.date.slice(0, 4)); set(/^m[eê]s$/i, monthName(item.date)); set(/^empresa$/i, "Dronefy");
-    set(/^conta corrente$/i, analysis?.accountLabel || analysis?.bank || "Conta bancária"); set(/^tipo contábil$/i, item.movement === "credit" ? "Recebimento bancário" : target === "Transferências" ? "Transferência" : "Pagamento bancário");
+    set(/^conta corrente$/i, analysis?.accountLabel || analysis?.bank || "Conta bancária"); set(/^tipo contábil$/i, item.flowType);
     set(/^categoria contábil$/i, item.category); set(/^centro de custo$/i, "Consolidado"); set(/^empenho$/i, item.counterparty);
     set(/^origem$/i, item.origin); set(/^cc pagador$/i, item.movement === "debit" ? (analysis?.accountLabel || analysis?.bank || "Conta bancária") : item.origin); set(/^destino$/i, item.destination);
     set(/^valor$/i, String(Math.abs(item.amount))); set(/^status$/i, status); set(/ano de exercício/i, item.date.slice(0, 4));
     set(/relação do custo/i, item.costRelation); set(/comportamento do custo/i, item.costBehavior);
-    set(/observações|historico|histórico/i, `Importado de extrato ${analysis?.bank ?? "bancário"} · ${item.description.slice(0, 240)}`);
     return values;
   };
 
@@ -87,18 +100,30 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
     const result = new Map<string, Set<string>>();
     for (const target of ["Contas a Receber", "Contas a Pagar", "Transferências"]) {
       const sheet = sheets[target] ?? []; const headers = sheet[0] ?? [];
-      const date = headerIndex(headers, /^data$/i), value = headerIndex(headers, /^valor$/i), origin = headerIndex(headers, /^origem$/i), destination = headerIndex(headers, /^destino$/i), account = headerIndex(headers, /^conta corrente$/i);
-      result.set(target, new Set(sheet.slice(1).map((row) => [normalize(row[date]), Math.abs(numberValue(row[value])).toFixed(2), normalize(row[origin]), normalize(row[destination]), normalize(row[account])].join("|"))));
+      const date = headerIndex(headers, /^data$/i), value = headerIndex(headers, /^valor$/i);
+      const origin = headerIndex(headers, target === "Transferências" ? /^conta origem$/i : /^origem$/i);
+      const destination = headerIndex(headers, target === "Transferências" ? /^conta destino$/i : /^destino$/i);
+      const account = headerIndex(headers, /^conta corrente$/i);
+      result.set(target, new Set(sheet.slice(1).map((row) => [normalize(row[date]), Math.abs(numberValue(row[value])).toFixed(2), normalize(row[origin]), normalize(row[destination]), account >= 0 ? normalize(row[account]) : ""].join("|"))));
     }
     return result;
   }, [sheets]);
   const isDuplicate = (item: BankTransaction) => {
     if (item.target === "Ignorar") return false;
     const row = buildRow(item.target, item); const headers = sheets[item.target]?.[0] ?? [];
-    const date = headerIndex(headers, /^data$/i), value = headerIndex(headers, /^valor$/i), origin = headerIndex(headers, /^origem$/i), destination = headerIndex(headers, /^destino$/i), account = headerIndex(headers, /^conta corrente$/i);
-    return duplicateKeys.get(item.target)?.has([normalize(row[date]), Math.abs(numberValue(row[value])).toFixed(2), normalize(row[origin]), normalize(row[destination]), normalize(row[account])].join("|")) ?? false;
+    const date = headerIndex(headers, /^data$/i), value = headerIndex(headers, /^valor$/i);
+    const origin = headerIndex(headers, item.target === "Transferências" ? /^conta origem$/i : /^origem$/i);
+    const destination = headerIndex(headers, item.target === "Transferências" ? /^conta destino$/i : /^destino$/i);
+    const account = headerIndex(headers, /^conta corrente$/i);
+    return duplicateKeys.get(item.target)?.has([normalize(row[date]), Math.abs(numberValue(row[value])).toFixed(2), normalize(row[origin]), normalize(row[destination]), account >= 0 ? normalize(row[account]) : ""].join("|")) ?? false;
   };
   const update = (id: string, patch: Partial<BankTransaction>) => setAnalysis((current) => current ? { ...current, transactions: current.transactions.map((item) => item.id === id ? { ...item, ...patch } : item) } : current);
+  const updateTarget = (item: BankTransaction, target: BankTransaction["target"]) => {
+    const loan = /empréstimo|aporte|adiantamento/i.test(item.category);
+    const accounting = target === "Transferências" ? "Transferência" : loan ? "Empréstimo" : target === "Contas a Receber" ? "Receita" : target === "Contas a Pagar" ? "Despesa" : item.accounting;
+    const flowType = target === "Transferências" ? (item.movement === "credit" ? "Entrada por transferência" : "Saída por transferência") : target === "Contas a Receber" ? "Recebimento bancário" : target === "Contas a Pagar" ? "Pagamento bancário" : item.flowType;
+    update(item.id, { target, accounting, flowType, selected: target !== "Ignorar" });
+  };
   const updateIdentity = (patch: Partial<Pick<Analysis, "bank" | "account">>) => setAnalysis((current) => {
     if (!current) return current;
     const bank = patch.bank ?? current.bank;
@@ -132,7 +157,7 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
     try {
       const response = await fetch("/api/bank-statement", { method: "POST", body: form }); const result = await parseResponse<Analysis & { error?: string }>(response);
       if (!response.ok) throw new Error(result.error || "Não foi possível interpretar o extrato.");
-      setAnalysis({ ...result, transactions: result.transactions.map((item) => ({ ...item, selected: item.selected && !isDuplicate(item) })) });
+      setAnalysis(result);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível interpretar o extrato."); } finally { setLoading(false); }
   };
 
@@ -142,10 +167,11 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
     try {
       for (const target of ["Contas a Receber", "Contas a Pagar", "Transferências"] as const) {
         const group = selected.filter((item) => item.target === target); if (!group.length) continue;
-        const rows = group.map((item) => buildRow(target, item));
-        for (let start = 0; start < rows.length; start += 400) {
-          const batch = rows.slice(start, start + 400);
-          const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "bulk-create", sheet: target, rows: batch }) });
+        for (let start = 0; start < group.length; start += 400) {
+          const batchItems = group.slice(start, start + 400);
+          const batch = batchItems.map((item) => buildRow(target, item));
+          const bankImports = batchItems.map((item) => ({ transactionId: item.externalId || item.id, bank: analysis?.bank ?? "", account: analysis?.account ?? "", date: item.date, movement: item.movement, value: item.amount, target, fileName: analysis?.fileName ?? "", description: item.description }));
+          const response = await fetch("/api/records", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "bulk-create", sheet: target, rows: batch, bankImports }) });
           const result = await parseResponse<ImportResult>(response); if (!response.ok) throw new Error(result.error || `Não foi possível atualizar ${target}.`);
           updates[target] = [...(updates[target] ?? []), ...(result.rows ?? [])];
           imported += result.rows?.length ?? 0; duplicates += result.duplicates ?? 0; if (result.cashFlow) cashFlow = result.cashFlow;
@@ -165,9 +191,9 @@ export default function BankStatementImporter({ sheets, configRows, onClose, onI
   return <div className="modal-backdrop" role="presentation"><section className="bank-import-modal" role="dialog" aria-modal="true" aria-labelledby="bank-import-title">
     <div className="modal-head"><div><span>FINANCEIRO</span><h3 id="bank-import-title">Importar extrato bancário</h3></div><button onClick={onClose} aria-label="Fechar">×</button></div>
     {!analysis ? <div className="bank-upload"><label><strong>{loading ? "Identificando banco e movimentações..." : "Selecione o extrato bancário"}</strong><span>Formatos aceitos: PDF com texto selecionável, OFX, QFX, CSV e TXT.</span><input type="file" accept=".pdf,.ofx,.qfx,.csv,.txt,application/pdf,text/csv,text/plain" disabled={loading} onChange={(event) => analyze(event.target.files?.[0])}/></label><aside><b>Importação protegida</b><p>Nenhum lançamento é salvo antes da conferência. Duplicidades, transferências internas e pagamentos de fatura são separados das despesas.</p><p>Correções confirmadas passam a ser sugeridas automaticamente nas próximas importações.</p></aside></div> : <>
-      <div className="bank-import-summary"><div className="bank-identity-card"><span>Banco e conta — confira antes de importar</span><div className="bank-identity-fields"><label><small>Banco</small><input value={analysis.bank} onChange={(event) => updateIdentity({ bank: event.target.value })}/></label><label><small>Conta</small><input value={analysis.account} onChange={(event) => updateIdentity({ account: event.target.value })}/></label></div><small>{analysis.parser} · {analysis.fileName}</small></div><div><span>Entradas reconhecidas</span><strong>{brl(analysis.totals.credits)}</strong><small>{analysis.transactions.filter((item) => item.movement === "credit").length} movimentação(ões)</small></div><div><span>Saídas reconhecidas</span><strong>{brl(analysis.totals.debits)}</strong><small>{analysis.transactions.filter((item) => item.movement === "debit").length} movimentação(ões)</small></div><div><span>Conferência</span><strong>{analysis.confidence.low} pendente(s)</strong><small>{analysis.confidence.high} alta · {analysis.confidence.medium} média confiança</small></div></div>
+      <div className="bank-import-summary"><div className="bank-identity-card"><span>Banco e conta — confira antes de importar</span><div className="bank-identity-fields"><label><small>Banco</small><input value={analysis.bank} onChange={(event) => updateIdentity({ bank: event.target.value })}/></label><label><small>Conta</small><input value={analysis.account} onChange={(event) => updateIdentity({ account: event.target.value })}/></label></div><small>{analysis.parser} · {analysis.fileName}</small></div><div><span>Contas a Receber</span><strong>{brl(analysis.transactions.filter((item) => item.target === "Contas a Receber").reduce((sum, item) => sum + item.amount, 0))}</strong><small>{analysis.transactions.filter((item) => item.target === "Contas a Receber").length} entrada(s) conciliada(s)</small></div><div><span>Contas a Pagar</span><strong>{brl(analysis.transactions.filter((item) => item.target === "Contas a Pagar").reduce((sum, item) => sum + item.amount, 0))}</strong><small>{analysis.transactions.filter((item) => item.target === "Contas a Pagar").length} saída(s) operacional(is)</small></div><div><span>Fora de receita/despesa</span><strong>{brl(analysis.transactions.filter((item) => item.target === "Transferências").reduce((sum, item) => sum + item.amount, 0))}</strong><small>{analysis.transactions.filter((item) => item.target === "Transferências").length} transferência(s), fatura(s) ou aplicação(ões)</small></div></div>
       <div className="learning-switch"><label><input type="checkbox" aria-label="Aprender com esta conferência" checked={learn} onChange={(event) => setLearn(event.target.checked)}/><span><b>Aprender com esta conferência</b><small>Salvar as classificações confirmadas para o mesmo CPF/CNPJ ou favorecido.</small></span></label><div className="selection-actions"><button type="button" className="select-all-action" onClick={toggleAllEligible} disabled={!eligible.length} aria-pressed={allEligibleSelected}>{allEligibleSelected ? "Desmarcar todos" : "Marcar todos"}</button><strong>{selected.length} selecionado(s) · {brl(selected.reduce((sum, item) => sum + item.amount, 0))}</strong></div></div>
-      <div className="bank-review"><table><thead><tr><th>Importar</th><th>Data</th><th>Movimento</th><th>Favorecido/Pagador</th><th>Valor</th><th>Destino do lançamento</th><th>Categoria</th><th>Origem</th><th>Destino</th><th>Relação</th><th>Comportamento</th><th>Precisão</th></tr></thead><tbody>{analysis.transactions.map((item) => { const duplicate = isDuplicate(item); return <tr key={item.id} className={duplicate ? "duplicate-row" : item.confidence === "Baixa" ? "review-row" : ""}><td><input type="checkbox" checked={item.selected && !duplicate} disabled={duplicate || item.target === "Ignorar"} onChange={(event) => update(item.id, { selected: event.target.checked })}/>{duplicate && <small>Duplicado</small>}</td><td><input type="date" value={item.date} onChange={(event) => update(item.id, { date: event.target.value })}/></td><td><span className={`movement ${item.movement}`}>{item.movement === "credit" ? "Entrada" : "Saída"}</span></td><td><input value={item.counterparty} onChange={(event) => update(item.id, { counterparty: event.target.value })}/><small>{item.document || item.suggestionSource}</small></td><td><strong>{brl(item.amount)}</strong></td><td><select value={item.target} onChange={(event) => update(item.id, { target: event.target.value as BankTransaction["target"], selected: event.target.value !== "Ignorar" })}><option>Contas a Receber</option><option>Contas a Pagar</option><option>Transferências</option><option>Ignorar</option></select></td><td><input list="bank-categories" value={item.category} onChange={(event) => update(item.id, { category: event.target.value })}/></td><td><input value={item.origin} onChange={(event) => update(item.id, { origin: event.target.value })}/></td><td><input value={item.destination} onChange={(event) => update(item.id, { destination: event.target.value })}/></td><td><select value={item.costRelation} onChange={(event) => update(item.id, { costRelation: event.target.value })}><option>Direto</option><option>Indireto</option></select></td><td><select value={item.costBehavior} onChange={(event) => update(item.id, { costBehavior: event.target.value })}><option>Fixo</option><option>Variável</option></select></td><td><span className={`confidence ${normalize(item.confidence)}`}>{item.confidence}</span><small>{item.suggestionSource}</small></td></tr>; })}</tbody></table><datalist id="bank-categories">{categories.map((category) => <option key={category} value={category}/>)}</datalist></div>
+      <div className="bank-review"><table><thead><tr><th>Importar</th><th>Data</th><th>Movimento</th><th>Favorecido/Pagador</th><th>Valor</th><th>Destino do lançamento</th><th>Categoria</th><th>Origem</th><th>Destino</th><th>Relação</th><th>Comportamento</th><th>Precisão</th></tr></thead><tbody>{analysis.transactions.map((item) => { const duplicate = isDuplicate(item); return <tr key={item.id} className={duplicate ? "duplicate-row" : item.reviewRequired ? "review-row" : ""}><td><input type="checkbox" checked={item.selected && !duplicate} disabled={duplicate || item.target === "Ignorar"} onChange={(event) => update(item.id, { selected: event.target.checked })}/>{duplicate && <small>Duplicado</small>}</td><td><input type="date" value={item.date} onChange={(event) => update(item.id, { date: event.target.value })}/></td><td><span className={`movement ${item.movement}`}>{item.movement === "credit" ? "Entrada" : "Saída"}</span></td><td><input value={item.counterparty} onChange={(event) => update(item.id, { counterparty: event.target.value })}/><small>{item.document || item.suggestionSource}</small></td><td><strong>{brl(item.amount)}</strong></td><td><select value={item.target} onChange={(event) => updateTarget(item, event.target.value as BankTransaction["target"])}><option>Contas a Receber</option><option>Contas a Pagar</option><option>Transferências</option><option>Ignorar</option></select></td><td><input list="bank-categories" value={item.category} onChange={(event) => update(item.id, { category: event.target.value })}/><small>{item.accounting} · {item.flowType}</small></td><td><input value={item.origin} onChange={(event) => update(item.id, { origin: event.target.value })}/></td><td><input value={item.destination} onChange={(event) => update(item.id, { destination: event.target.value })}/></td><td><select value={item.costRelation} onChange={(event) => update(item.id, { costRelation: event.target.value })}><option>Direto</option><option>Indireto</option></select></td><td><select value={item.costBehavior} onChange={(event) => update(item.id, { costBehavior: event.target.value })}><option>Fixo</option><option>Variável</option></select></td><td><span className={`confidence ${normalize(item.confidence)}`}>{item.confidence}</span><small>{item.suggestionSource}</small></td></tr>; })}</tbody></table><datalist id="bank-categories">{categories.map((category) => <option key={category} value={category}/>)}</datalist></div>
     </>}
     {error && <div className="invoice-import-error">{error}</div>}
     <div className="modal-actions">{analysis && <button className="cancel-action" onClick={() => setAnalysis(null)} disabled={loading || importing}>Trocar arquivo</button>}<button className="cancel-action" onClick={onClose} disabled={loading || importing}>Cancelar</button>{analysis && <button className="save-action" onClick={commit} disabled={importing || !selected.length}>{importing ? "Importando e conciliando..." : `Confirmar ${selected.length} lançamento(s)`}</button>}</div>

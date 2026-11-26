@@ -5,6 +5,8 @@ import { INVOICE_ANALYSIS_HEADERS, INVOICE_ANALYSIS_SHEET } from "../../lib/invo
 import { normalizeCells, normalizeRows, rejectUnsafeMutation, validSheetRowIndex } from "../../lib/api-guard";
 import { getRequestSession } from "../../lib/auth";
 import { canAccessSheet } from "../../lib/access-control";
+import { BANK_IMPORT_LEDGER_SHEET, ensureBankImportLedgerSheet, type BankImportEntry } from "../../lib/bank-import-ledger";
+import { bankImportKey } from "../../lib/bank-migration";
 
 const ACTIONS = ["create", "update", "delete", "bulk-create", "learn-bank-rules"] as const;
 type RecordAction = typeof ACTIONS[number];
@@ -51,6 +53,28 @@ const normalizedFinancialKey = (row: string[]) => {
   return `${date}|${value}|${counterparty}`;
 };
 
+const normalizedTransferKey = (row: string[]) => {
+  const normalize = (item: unknown) => String(item ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+  return `${financialDate(row[1])}|${financialNumber(row[4]).toFixed(2)}|${normalize(row[2])}|${normalize(row[3])}`;
+};
+
+const normalizeBankImports = (input: unknown, expectedLength: number): BankImportEntry[] | null => {
+  if (input === undefined) return [];
+  if (!Array.isArray(input) || input.length !== expectedLength || input.length > 500) return null;
+  const entries: BankImportEntry[] = [];
+  for (const value of input) {
+    if (!value || typeof value !== "object") return null;
+    const item = value as Record<string, unknown>;
+    const strings = ["transactionId", "bank", "account", "date", "movement", "target", "fileName", "description"] as const;
+    if (strings.some((field) => typeof item[field] !== "string" || String(item[field]).length > 2_000)) return null;
+    if (item.movement !== "credit" && item.movement !== "debit") return null;
+    const amount = Number(item.value);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    entries.push({ transactionId: String(item.transactionId), bank: String(item.bank), account: String(item.account), date: String(item.date), movement: item.movement, value: amount, target: String(item.target), fileName: String(item.fileName), description: String(item.description) });
+  }
+  return entries;
+};
+
 const ensureInvoiceAnalysisSheet = async (spreadsheetId: string, headers: Record<string, string>) => {
   const metadata = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, { headers });
   if (!metadata.ok) throw new Error("Não foi possível conferir a área de análise de faturas.");
@@ -75,13 +99,25 @@ const syncCashFlow = async (spreadsheetId: string, headers: Record<string, strin
   const params = new URLSearchParams({ valueRenderOption: "UNFORMATTED_VALUE" });
   params.append("ranges", "'Contas a Receber'!A1:Q10000");
   params.append("ranges", "'Contas a Pagar'!A1:Q10000");
+  params.append("ranges", "'Transferências'!A1:H10000");
   const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${params}`, { headers });
   if (!response.ok) throw new Error("Não foi possível atualizar o fluxo de caixa.");
   const result = await response.json() as { valueRanges?: Array<{ values?: Array<Array<string | number>> }> };
   const receive = result.valueRanges?.[0]?.values ?? [];
   const payable = result.valueRanges?.[1]?.values ?? [];
+  const transfers = result.valueRanges?.[2]?.values ?? [];
   const header = (receive[0] ?? payable[0] ?? []).map(String);
-  const records = [...receive.slice(1), ...payable.slice(1)].filter((row) => row.some((value) => value !== "" && value !== null));
+  const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  const transferRecords = transfers.slice(1).filter((row) => row.some((value) => value !== "" && value !== null)).map((row) => {
+    const date = financialDate(row[1]);
+    const year = String(row[7] ?? date.slice(0, 4));
+    const month = months[Number(date.slice(5, 7)) - 1] ?? "";
+    const description = String(row[5] ?? "Transferência bancária");
+    const incoming = /^\[entrada\]/i.test(description);
+    const category = description.replace(/^\[(?:entrada|saída)\]\s*/i, "").split(" · ")[0] || "Transferências";
+    return ["", date, "Transferência", year, month, "Dronefy", "Empresa", incoming ? "Entrada por transferência" : "Saída por transferência", category, "Consolidado", description, String(row[6] ?? "Importação bancária"), String(row[2] ?? ""), String(row[3] ?? ""), row[4] ?? 0, "Concluída", year];
+  });
+  const records = [...receive.slice(1), ...payable.slice(1), ...transferRecords].filter((row) => row.some((value) => value !== "" && value !== null));
   records.sort((a, b) => { const left = typeof a[1] === "number" ? a[1] : Date.parse(String(a[1] ?? "")) || 0; const right = typeof b[1] === "number" ? b[1] : Date.parse(String(b[1] ?? "")) || 0; return left - right || String(a[2] ?? "").localeCompare(String(b[2] ?? ""), "pt-BR"); });
   records.forEach((row, index) => { row[0] = index + 1; });
   const cashFlow = [header, ...records];
@@ -97,14 +133,16 @@ export async function POST(request: Request) {
   const rejected = rejectUnsafeMutation(request);
   if (rejected) return rejected;
   try {
-    const payload = await request.json() as { action?: unknown; sheet?: unknown; rowIndex?: unknown; values?: unknown; rows?: unknown; rules?: unknown };
+    const payload = await request.json() as { action?: unknown; sheet?: unknown; rowIndex?: unknown; values?: unknown; rows?: unknown; rules?: unknown; bankImports?: unknown };
     const action = typeof payload.action === "string" && ACTIONS.includes(payload.action as RecordAction) ? payload.action as RecordAction : null;
     const sheet = typeof payload.sheet === "string" ? payload.sheet : "";
     const rowIndex = payload.rowIndex;
     const values = normalizeCells(payload.values);
     const rows = normalizeRows(payload.rows);
+    const bankImports = rows ? normalizeBankImports(payload.bankImports, rows.length) : [];
     const rules = Array.isArray(payload.rules) ? payload.rules : [];
     if (!action) return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
+    if (rows && bankImports === null) return NextResponse.json({ error: "Os identificadores bancários da importação são inválidos." }, { status: 400 });
     if (!SHEET_NAMES.includes(sheet as typeof SHEET_NAMES[number])) return NextResponse.json({ error: "Módulo inválido." }, { status: 400 });
     const session = getRequestSession(request);
     if (!session) return NextResponse.json({ error: "Sessão expirada." }, { status: 401 });
@@ -136,37 +174,56 @@ export async function POST(request: Request) {
     if (action === "bulk-create") {
       if (!rows) return NextResponse.json({ error: "A importação deve conter entre 1 e 500 lançamentos válidos." }, { status: 400 });
       const financialSheet = sheet === "Contas a Receber" || sheet === "Contas a Pagar";
+      const bankLedgerTarget = financialSheet || sheet === "Transferências";
       const invoiceSheet = sheet === "Notas Fiscais";
-      const codeRange = encodeURIComponent(`'${sheet}'!A2:${financialSheet ? "Q" : invoiceSheet ? "Z" : "A"}`);
+      const codeRange = encodeURIComponent(`'${sheet}'!A2:${financialSheet ? "S" : sheet === "Transferências" ? "H" : invoiceSheet ? "Z" : "A"}`);
       const codeResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${codeRange}`, { headers });
       if (!codeResponse.ok) throw new Error("Não foi possível conferir os códigos e duplicidades existentes.");
       const codeData = await codeResponse.json() as { values?: string[][] };
       const highestCode = (codeData.values ?? []).reduce((highest, row) => { const digits = String(row[0] ?? "").match(/\d+/g)?.join(""); return Math.max(highest, digits ? Number(digits) : 0); }, 0);
-      const existingKeys = financialSheet ? new Set((codeData.values ?? []).map((row) => normalizedFinancialKey(row.map(String)))) : new Set<string>();
+      const legacyKey = (row: string[]) => financialSheet ? normalizedFinancialKey(row) : normalizedTransferKey(row);
+      const existingKeys = bankLedgerTarget ? new Set((codeData.values ?? []).map((row) => legacyKey(row.map(String)))) : new Set<string>();
+      const trackedKeys = new Set<string>();
+      if (bankImports?.length) {
+        await ensureBankImportLedgerSheet(spreadsheetId, headers);
+        const ledgerRange = encodeURIComponent(`'${BANK_IMPORT_LEDGER_SHEET}'!A2:A`);
+        const ledgerResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${ledgerRange}?valueRenderOption=UNFORMATTED_VALUE`, { headers });
+        if (!ledgerResponse.ok) throw new Error("Não foi possível validar o histórico das importações bancárias.");
+        const ledgerData = await ledgerResponse.json() as { values?: Array<Array<string | number>> };
+        for (const row of ledgerData.values ?? []) if (row[0]) trackedKeys.add(String(row[0]));
+      }
       const invoiceKey = (row: string[]) => {
         const raw = String(row[7] || row[1] || "").trim().toLocaleLowerCase("pt-BR");
         const digits = raw.replace(/\D/g, "");
         return digits.length === 44 || digits.length === 50 ? digits : raw.normalize("NFD").replace(/[\u0300-\u036f\s.-]/g, "");
       };
       const existingInvoiceKeys = invoiceSheet ? new Set((codeData.values ?? []).map((row) => invoiceKey(row.map(String))).filter(Boolean)) : new Set<string>();
-      const submittedRows = rows.map((source, index) => {
+      const accepted = rows.map((source, index) => ({ source, bankImport: bankImports?.[index] })).filter(({ source, bankImport }) => {
+        if (bankLedgerTarget) {
+          const key = legacyKey(source);
+          if (bankImport) {
+            const tracked = bankImportKey(bankImport.bank, bankImport.account, bankImport.transactionId);
+            if (trackedKeys.has(tracked)) { skipped += 1; return false; }
+            trackedKeys.add(tracked);
+            // Não adiciona a chave simplificada: dois lançamentos legítimos podem ter mesma data, valor e favorecido.
+          } else {
+            if (existingKeys.has(key)) { skipped += 1; return false; }
+            existingKeys.add(key);
+          }
+        }
+        if (invoiceSheet) {
+          const key = invoiceKey(source);
+          if (key && existingInvoiceKeys.has(key)) { skipped += 1; return false; }
+          if (key) existingInvoiceKeys.add(key);
+        }
+        return true;
+      });
+      const submittedRows = accepted.map(({ source }, index) => {
         const submitted = [...source];
         submitted[0] = String(highestCode + index + 1);
         if (sheet === "Contas a Pagar") submitted[14] = String(financialNumber(submitted[14]));
         completeFinancialPeriod(sheet, submitted);
         return submitted;
-      }).filter((row) => {
-        if (financialSheet) {
-          const key = normalizedFinancialKey(row);
-          if (existingKeys.has(key)) { skipped += 1; return false; }
-          existingKeys.add(key);
-        }
-        if (invoiceSheet) {
-          const key = invoiceKey(row);
-          if (key && existingInvoiceKeys.has(key)) { skipped += 1; return false; }
-          if (key) existingInvoiceKeys.add(key);
-        }
-        return true;
       });
       imported = submittedRows.length;
       importedRows = submittedRows;
@@ -174,6 +231,14 @@ export async function POST(request: Request) {
         const range = encodeURIComponent(`'${sheet}'!A:Z`);
         const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: submittedRows }) });
         if (!response.ok) throw new Error("Não foi possível importar os lançamentos.");
+      }
+      const acceptedBankImports = accepted.map((item) => item.bankImport).filter((item): item is BankImportEntry => !!item);
+      if (acceptedBankImports.length) {
+        const importedAt = new Date().toISOString();
+        const ledgerRows = acceptedBankImports.map((entry) => [bankImportKey(entry.bank, entry.account, entry.transactionId), entry.bank, entry.account, entry.transactionId, entry.date, entry.movement, entry.value, entry.target, entry.fileName, entry.description, importedAt]);
+        const ledgerRange = encodeURIComponent(`'${BANK_IMPORT_LEDGER_SHEET}'!A:K`);
+        const ledgerWrite = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${ledgerRange}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, { method: "POST", headers, body: JSON.stringify({ values: ledgerRows }) });
+        if (!ledgerWrite.ok) throw new Error("Os lançamentos foram gravados, mas o histórico de prevenção de duplicidades não pôde ser atualizado.");
       }
     } else if (action === "create") {
       if (!values) return NextResponse.json({ error: "Dados do cadastro inválidos." }, { status: 400 });
@@ -225,7 +290,7 @@ export async function POST(request: Request) {
       const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: "POST", headers, body: JSON.stringify({ requests: [{ deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: rowIndex - 1, endIndex: rowIndex } } }] }) });
       if (!response.ok) throw new Error("Não foi possível excluir o cadastro.");
     } else return NextResponse.json({ error: "Operação inválida." }, { status: 400 });
-    const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" ? await syncCashFlow(spreadsheetId, headers) : undefined;
+    const cashFlow = sheet === "Contas a Receber" || sheet === "Contas a Pagar" || sheet === "Transferências" ? await syncCashFlow(spreadsheetId, headers) : undefined;
     return NextResponse.json({ ok: true, code: generatedCode, imported, skipped, duplicates: skipped, rows: importedRows, cashFlow });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Falha ao concluir a operação." }, { status: 500 });
